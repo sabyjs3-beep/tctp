@@ -1,5 +1,5 @@
 {
-    "name": "TCTP Infallible Ingestion: Google Events",
+    "name": "TCTP Infallible Ingestion: Google Events (Production)",
     "nodes": [
         {
             "parameters": {
@@ -23,7 +23,7 @@
         },
         {
             "parameters": {
-                "jsCode": "const cities = ['mumbai', 'goa', 'bangalore', 'delhi', 'pune', 'hyderabad'];\nreturn cities.map(c => ({ json: { city: c } }));"
+                "jsCode": "const cities = ['mumbai', 'goa', 'bangalore', 'delhi', 'pune', 'hyderabad', 'chennai', 'kolkata', 'gurgaon', 'noida', 'chandigarh', 'jaipur'];\nconst terms = ['party events', 'nightlife', 'techno events', 'concerts'];\nconst output = [];\n\nfor (const city of cities) {\n  for (const term of terms) {\n    output.push({ json: { q: `${term} in ${city}`, city: city } });\n  }\n}\n\nreturn output;"
             },
             "id": "f7b1e02d-6c4b-5g5d-9gbd-abcdef123456",
             "name": "City List",
@@ -36,7 +36,7 @@
         },
         {
             "parameters": {
-                "url": "=https://serpapi.com/search.json?engine=google_events&q=nightlife+events+in+{{ $json.city }}+tonight&api_key=f01931c5a26268932f842957a72eb1e44dbccdfdc8578eb63e5751428f312041",
+                "url": "=https://serpapi.com/search.json?engine=google_events&q={{ $json.q }}&num=50&api_key=f01931c5a26268932f842957a72eb1e44dbccdfdc8578eb63e5751428f312041",
                 "options": {}
             },
             "id": "a1b2c3d4-e5f6-7g8h-9i0j-k1l2m3n4o5p6",
@@ -50,7 +50,7 @@
         },
         {
             "parameters": {
-                "jsCode": "const events = $input.all();\nconst output = [];\n\nfor (const cityBatch of events) {\n  // Extract city from the search query used (pass it through from previous node better next time, but this works for now)\n  // The query was: \"nightlife events in {city} tonight\"\n  const query = cityBatch.json.search_parameters.q;\n  const citySlug = query.split('in ')[1].split(' tonight')[0];\n  \n  const eventList = cityBatch.json.events_results || [];\n  \n  for (const event of eventList) {\n    const ticketLinks = event.ticket_info ? event.ticket_info.map(t => ({ source: t.source, url: t.link })) : [];\n    \n    output.push({\n      json: {\n        title: event.title,\n        venueName: event.venue?.name || 'Unknown Venue',\n        venueAddress: event.address?.join(', ') || null,\n        citySlug: citySlug,\n        // Handle various date formats. If date missing, default to future to avoid immediate filter-out\n        date: event.startDate ? new Date(event.startDate).toISOString().split('T')[0] : new Date(Date.now() + 86400000).toISOString().split('T')[0],\n        startTime: (event.startDate ? new Date(event.startDate).getHours().toString().padStart(2, '0') + ':00' : '22:00'),\n        description: event.description,\n        ticketUrl: event.link,\n        ticketLinks: ticketLinks,\n        priceRange: null,\n        sourceType: 'automated',\n        vibeTags: ['nightlife']\n      }\n    });\n  }\n}\n\nreturn output;"
+                "jsCode": "const output = [];\n\nfor (const item of $input.all()) {\n  // Access city directly from the input item (safe & robust)\n  let citySlug = 'mumbai';\n  if (item.json.search_information && item.json.search_information.query_displayed) {\n      // Fallback if needed, but we should have it in item.json from previous node if paired correctly.\n      // n8n v1 handles iteration, but let's look at the paired input.\n      // Actually, since we passed it through, it should be available via Paired Item logic or just assumed context if 1-to-1.\n      // HACK: In n8n loop, the input item.json is the OUTPUT of the HTTP node. \n      // The INPUT to the HTTP node is hard to access without index. \n      // Simpler: We trust the query parser fallback or we rely on extracting from the query string which is in search_parameters.\n  }\n  \n  // Extract from the executed query in search_parameters (most reliable from API response)\n  try {\n      const executedQuery = item.json.search_parameters.q;\n      citySlug = executedQuery.split(' in ')[1]; \n  } catch (e) {\n      // Keep default\n  }\n\n  const events = item.json.events_results || [];\n  \n  for (const event of events) {\n    if (!event.title) continue;\n\n    const ticketLinks = event.ticket_info ? event.ticket_info.map(t => ({ source: t.source, url: t.link })) : [];\n    if (event.link && !ticketLinks.some(t => t.url === event.link)) {\n        ticketLinks.unshift({ source: 'Google', url: event.link });\n    }\n\n    let date = new Date().toISOString().split('T')[0]; \n    let startTime = '22:00';\n    if (event.startDate) {\n         try {\n             date = new Date(event.startDate).toISOString().split('T')[0];\n             startTime = new Date(event.startDate).getHours().toString().padStart(2, '0') + ':00';\n         } catch (e) {}\n    }\n\n    output.push({\n      json: {\n        title: event.title,\n        venueName: event.venue?.name || 'Unknown Venue',\n        venueAddress: event.address?.join(', ') || null,\n        mapUrl: event.link,\n        citySlug: citySlug,\n        date: date,\n        startTime: startTime,\n        description: event.description || '',\n        ticketUrl: event.link,\n        ticketLinks: ticketLinks,\n        priceRange: null,\n        sourceType: 'automated',\n        vibeTags: ['nightlife']\n      }\n    });\n  }\n}\n\nreturn output;"
             },
             "id": "b2c3d4e5-f6g7-8h9i-0j1k-l2m3n4o5p6q7",
             "name": "Format Payload",
@@ -64,16 +64,9 @@
         {
             "parameters": {
                 "method": "POST",
-                "url": "=https://www.toocooltoparty.com/api/events",
-                "sendHeaders": true,
-                "headerParameters": {
-                    "parameters": [
-                        {
-                            "name": "Authorization",
-                            "value": "=Bearer 953bd82999f04679a0c2622a4b00581a"
-                        }
-                    ]
-                },
+                "url": "https://www.toocooltoparty.com/api/events",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
                 "sendBody": true,
                 "bodyParameters": {
                     "parameters": [
@@ -84,6 +77,14 @@
                         {
                             "name": "venueName",
                             "value": "={{ $json.venueName }}"
+                        },
+                        {
+                            "name": "venueAddress",
+                            "value": "={{ $json.venueAddress }}"
+                        },
+                        {
+                            "name": "mapUrl",
+                            "value": "={{ $json.mapUrl }}"
                         },
                         {
                             "name": "citySlug",
@@ -124,7 +125,13 @@
             "position": [
                 1050,
                 300
-            ]
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "tctp_prod_auth",
+                    "name": "TCTP Production Auth"
+                }
+            }
         }
     ],
     "connections": {
@@ -173,7 +180,7 @@
             ]
         }
     },
-    "active": false,
+    "active": true,
     "settings": {
         "executionOrder": "v1"
     }

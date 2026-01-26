@@ -43,13 +43,15 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Parse dates
-        const startDateTime = new Date(`${date}T${startTime}:00`);
+        // Parse dates (Force IST context by appending offset)
+        // Incoming strings are "2024-12-25" and "22:00" (Local India Time)
+        // We must tell Date constructor this is +05:30, otherwise Vercel (UTC) acts as if it's +00:00
+        const startDateTime = new Date(`${date}T${startTime}:00+05:30`);
         let endDateTime: Date | null = null;
 
         if (endTime) {
             // Handle events that go past midnight
-            const endDate = new Date(`${date}T${endTime}:00`);
+            const endDate = new Date(`${date}T${endTime}:00+05:30`);
             if (endDate < startDateTime) {
                 // Add a day if end time is before start time (e.g., 22:00 to 04:00)
                 endDate.setDate(endDate.getDate() + 1);
@@ -119,7 +121,7 @@ export async function POST(request: NextRequest) {
                 sourceType: sourceType,
                 ctaType: ctaType || (ticketUrl ? 'external_ticket' : 'pay_at_venue'),
                 ticketUrl: ticketUrl || null,
-                ticketLinks: ticketLinks ? (ticketLinks as any) : Prisma.JsonNull,
+                ticketLinks: ticketLinks ? (ticketLinks as any) : Prisma.JsonNull as any,
                 priceRange: priceRange || null,
                 vibeTags: Array.isArray(vibeTags) ? vibeTags.join(',') : (vibeTags || null),
                 status: startDateTime <= new Date() ? 'live' : 'created',

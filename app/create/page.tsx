@@ -3,12 +3,18 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+interface TicketLink {
+    source: string;
+    url: string;
+}
+
 interface FormData {
     instagramUrl: string;
     title: string;
     description: string;
     venueName: string;
     venueAddress: string;
+    mapUrl: string;
     date: string;
     startTime: string;
     endTime: string;
@@ -16,6 +22,8 @@ interface FormData {
     vibeTags: string;
     ctaType: 'pay_at_venue' | 'external_ticket';
     ticketUrl: string;
+    priceRange: string;
+    additionalTickets: TicketLink[];
 }
 
 export default function CreateEventPage() {
@@ -30,6 +38,7 @@ export default function CreateEventPage() {
         description: '',
         venueName: '',
         venueAddress: '',
+        mapUrl: '',
         date: '',
         startTime: '22:00',
         endTime: '04:00',
@@ -37,11 +46,11 @@ export default function CreateEventPage() {
         vibeTags: '',
         ctaType: 'pay_at_venue',
         ticketUrl: '',
+        priceRange: '',
+        additionalTickets: []
     });
 
     const handleInstagramPaste = () => {
-        // For MVP, we just move to the form
-        // In production, we'd fetch metadata from the IG post
         if (!formData.instagramUrl) {
             setError('Please paste an Instagram URL');
             return;
@@ -56,12 +65,40 @@ export default function CreateEventPage() {
         setStep('form');
     };
 
+    const addTicketLink = () => {
+        setFormData(prev => ({
+            ...prev,
+            additionalTickets: [...prev.additionalTickets, { source: '', url: '' }]
+        }));
+    };
+
+    const updateTicketLink = (index: number, field: keyof TicketLink, value: string) => {
+        const newTickets = [...formData.additionalTickets];
+        newTickets[index][field] = value;
+        setFormData(prev => ({ ...prev, additionalTickets: newTickets }));
+    };
+
+    const removeTicketLink = (index: number) => {
+        const newTickets = [...formData.additionalTickets];
+        newTickets.splice(index, 1);
+        setFormData(prev => ({ ...prev, additionalTickets: newTickets }));
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
         setError('');
 
         try {
+            // Construct ticketLinks array combining main ticketUrl and additional ones
+            const ticketLinks = [];
+            if (formData.ticketUrl) {
+                ticketLinks.push({ source: 'Primary', url: formData.ticketUrl });
+            }
+            formData.additionalTickets.forEach(t => {
+                if (t.source && t.url) ticketLinks.push(t);
+            });
+
             const response = await fetch('/api/events', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -69,12 +106,14 @@ export default function CreateEventPage() {
                     ...formData,
                     djs: formData.djNames.split(',').map((n) => n.trim()).filter(Boolean),
                     vibeTags: formData.vibeTags.split(',').map((t) => t.trim()).filter(Boolean),
+                    ticketLinks: ticketLinks.length > 0 ? ticketLinks : undefined,
+                    ctaType: ticketLinks.length > 0 ? 'external_ticket' : 'pay_at_venue'
                 }),
             });
 
             if (response.ok) {
                 const data = await response.json();
-                router.push(`/event/${data.event.id}`);
+                router.push(`/event/${data.event.id}`); // This will redirect to /[city]/event/[id]
             } else {
                 const data = await response.json();
                 setError(data.error || 'Failed to create event');
@@ -205,6 +244,26 @@ export default function CreateEventPage() {
                                 }}
                             />
                         </div>
+
+                        <div style={{ marginBottom: 'var(--space-4)' }}>
+                            <label style={{ display: 'block', marginBottom: 'var(--space-2)', fontWeight: 500 }}>
+                                Price Range (optional)
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="e.g., ₹500 - ₹1000"
+                                value={formData.priceRange}
+                                onChange={(e) => updateField('priceRange', e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: 'var(--space-3)',
+                                    background: 'var(--color-bg-card)',
+                                    border: '1px solid var(--color-border)',
+                                    borderRadius: 'var(--radius-md)',
+                                    color: 'var(--color-text-primary)',
+                                }}
+                            />
+                        </div>
                     </div>
 
                     {/* Venue */}
@@ -243,6 +302,26 @@ export default function CreateEventPage() {
                                 placeholder="e.g., Arpora Hill, Goa"
                                 value={formData.venueAddress}
                                 onChange={(e) => updateField('venueAddress', e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: 'var(--space-3)',
+                                    background: 'var(--color-bg-card)',
+                                    border: '1px solid var(--color-border)',
+                                    borderRadius: 'var(--radius-md)',
+                                    color: 'var(--color-text-primary)',
+                                }}
+                            />
+                        </div>
+
+                        <div style={{ marginBottom: 'var(--space-4)' }}>
+                            <label style={{ display: 'block', marginBottom: 'var(--space-2)', fontWeight: 500 }}>
+                                Google Maps Link (optional)
+                            </label>
+                            <input
+                                type="url"
+                                placeholder="e.g., https://goo.gl/maps/..."
+                                value={formData.mapUrl}
+                                onChange={(e) => updateField('mapUrl', e.target.value)}
                                 style={{
                                     width: '100%',
                                     padding: 'var(--space-3)',
@@ -365,9 +444,6 @@ export default function CreateEventPage() {
                                     color: 'var(--color-text-primary)',
                                 }}
                             />
-                            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginTop: 'var(--space-1)' }}>
-                                Suggestions: dark, warehouse, underground, melodic, high-energy, chill, sunset, sunrise
-                            </p>
                         </div>
                     </div>
 
@@ -378,36 +454,41 @@ export default function CreateEventPage() {
                         </h2>
 
                         <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-                            <button
-                                type="button"
-                                onClick={() => updateField('ctaType', 'pay_at_venue')}
-                                className={`btn ${formData.ctaType === 'pay_at_venue' ? 'btn--primary' : 'btn--secondary'}`}
-                                style={{ flex: 1, cursor: 'pointer' }}
-                            >
-                                Pay at Venue
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => updateField('ctaType', 'external_ticket')}
-                                className={`btn ${formData.ctaType === 'external_ticket' ? 'btn--primary' : 'btn--secondary'}`}
-                                style={{ flex: 1, cursor: 'pointer' }}
-                            >
-                                External Tickets
-                            </button>
+                            {/* Only show these if no tickets added yet, or logic specific */}
+                            <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
+                                Add ticket links below if this is a paid event.
+                            </p>
                         </div>
 
-                        {formData.ctaType === 'external_ticket' && (
-                            <div>
-                                <label style={{ display: 'block', marginBottom: 'var(--space-2)', fontWeight: 500 }}>
-                                    Ticket URL
-                                </label>
+                        <div style={{ marginBottom: 'var(--space-4)' }}>
+                            <label style={{ display: 'block', marginBottom: 'var(--space-2)', fontWeight: 500 }}>
+                                Primary Ticket URL
+                            </label>
+                            <input
+                                type="url"
+                                placeholder="https://insider.in/..."
+                                value={formData.ticketUrl}
+                                onChange={(e) => updateField('ticketUrl', e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: 'var(--space-3)',
+                                    background: 'var(--color-bg-card)',
+                                    border: '1px solid var(--color-border)',
+                                    borderRadius: 'var(--radius-md)',
+                                    color: 'var(--color-text-primary)',
+                                }}
+                            />
+                        </div>
+
+                        {formData.additionalTickets.map((ticket, index) => (
+                            <div key={index} style={{ marginBottom: 'var(--space-4)', display: 'flex', gap: 'var(--space-2)' }}>
                                 <input
-                                    type="url"
-                                    placeholder="https://insider.in/..."
-                                    value={formData.ticketUrl}
-                                    onChange={(e) => updateField('ticketUrl', e.target.value)}
+                                    type="text"
+                                    placeholder="Source (e.g. RA)"
+                                    value={ticket.source}
+                                    onChange={(e) => updateTicketLink(index, 'source', e.target.value)}
                                     style={{
-                                        width: '100%',
+                                        width: '30%',
                                         padding: 'var(--space-3)',
                                         background: 'var(--color-bg-card)',
                                         border: '1px solid var(--color-border)',
@@ -415,8 +496,39 @@ export default function CreateEventPage() {
                                         color: 'var(--color-text-primary)',
                                     }}
                                 />
+                                <input
+                                    type="url"
+                                    placeholder="URL"
+                                    value={ticket.url}
+                                    onChange={(e) => updateTicketLink(index, 'url', e.target.value)}
+                                    style={{
+                                        flex: 1,
+                                        padding: 'var(--space-3)',
+                                        background: 'var(--color-bg-card)',
+                                        border: '1px solid var(--color-border)',
+                                        borderRadius: 'var(--radius-md)',
+                                        color: 'var(--color-text-primary)',
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => removeTicketLink(index)}
+                                    style={{ padding: '0 10px', background: 'none', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-secondary)', cursor: 'pointer' }}
+                                >
+                                    ✕
+                                </button>
                             </div>
-                        )}
+                        ))}
+
+                        <button
+                            type="button"
+                            onClick={addTicketLink}
+                            className="btn btn--secondary"
+                            style={{ fontSize: '0.9rem', padding: '6px 12px' }}
+                        >
+                            + Add another link
+                        </button>
+
                     </div>
 
                     {error && (

@@ -17,6 +17,7 @@ interface EventCardProps {
     priceRange?: string | null;
     mapUrl?: string | null;
     sourceType: string;
+    citySlug: string;
     // Crowd signals
     legitPercent?: number;
     presenceCount: number;
@@ -39,6 +40,7 @@ export default function EventCard({
     priceRange,
     mapUrl,
     sourceType,
+    citySlug,
     legitPercent,
     presenceCount,
     queueStatus,
@@ -84,7 +86,7 @@ export default function EventCard({
         <article className="event-card" style={{ padding: 'var(--space-4)' }}>
             {/* Compact Header */}
             <header className="event-card__header" style={{ marginBottom: 'var(--space-2)' }}>
-                <a href={`/event/${id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <a href={`/${citySlug}/event/${id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                     <h2 className="event-card__title" style={{ fontSize: 'var(--text-base)', marginBottom: '2px' }}>
                         {title}
                     </h2>
@@ -193,7 +195,7 @@ export default function EventCard({
 
                 <div style={{ position: 'relative' }}>
                     {ctaType === 'pay_at_venue' ? (
-                        <a href={`/event/${id}`} className="btn btn--secondary" style={{ padding: '6px 12px', fontSize: 'var(--text-xs)' }}>
+                        <a href={`/${citySlug}/event/${id}`} className="btn btn--secondary" style={{ padding: '6px 12px', fontSize: 'var(--text-xs)' }}>
                             View Details
                         </a>
                     ) : (

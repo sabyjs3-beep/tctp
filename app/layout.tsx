@@ -15,12 +15,21 @@ export const metadata: Metadata = {
 };
 
 import CityPicker from '@/components/CityPicker';
+import Search from '@/components/Search';
 
-export default function RootLayout({
+import prisma from '@/lib/db';
+
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Dynamic fetch of cities for the global picker
+  const cities = await (prisma as any).city.findMany({
+    where: { active: true },
+    orderBy: { name: 'asc' }
+  });
+
   return (
     <html lang="en">
       <head>
@@ -34,9 +43,13 @@ export default function RootLayout({
       <body>
         {/* Header */}
         <header className="header">
+
           <div className="container header__inner">
             <a href="/" className="header__logo">TCTP</a>
-            <CityPicker />
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <CityPicker cities={cities} />
+              <Search />
+            </div>
           </div>
         </header>
 

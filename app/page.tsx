@@ -7,7 +7,7 @@ export default async function LandingPage() {
   // Fetch top cities for the landing page
   const cities = await (prisma as any).city.findMany({
     where: { active: true },
-    take: 6,
+    take: 20,
   });
 
   const stats = {

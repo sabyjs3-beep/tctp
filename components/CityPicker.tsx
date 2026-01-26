@@ -2,22 +2,21 @@
 
 import { useRouter, usePathname } from 'next/navigation';
 
-const CITIES = [
-    { name: 'Goa', slug: 'goa', trending: true },
-    { name: 'Mumbai', slug: 'mumbai', trending: true },
-    { name: 'Bangalore', slug: 'bangalore', trending: true },
-    { name: 'Delhi NCR', slug: 'delhi' },
-    { name: 'Pune', slug: 'pune' },
-    { name: 'Hyderabad', slug: 'hyderabad' },
-];
+interface CityPickerProps {
+    cities: { name: string; slug: string }[];
+}
 
-export default function CityPicker() {
+export default function CityPicker({ cities }: CityPickerProps) {
     const router = useRouter();
     const pathname = usePathname();
 
     // Extract city from pathname (e.g. /mumbai -> mumbai)
     const segments = pathname.split('/').filter(Boolean);
     const currentCity = segments[0] || 'goa'; // Default to goa for root
+
+    // Find the current city object to verify it exists
+    const isValidCity = cities.some(c => c.slug === currentCity);
+    const selectedValue = isValidCity ? currentCity : 'goa';
 
     return (
         <div className="header__city" style={{ display: 'flex', alignItems: 'center' }}>
@@ -29,7 +28,7 @@ export default function CityPicker() {
                 }}>📍</span>
                 <select
                     className="city-select"
-                    value={CITIES.some(c => c.slug === currentCity) ? currentCity : 'goa'}
+                    value={selectedValue}
                     onChange={(e) => router.push(`/${e.target.value}`)}
                     style={{
                         appearance: 'none',
@@ -43,9 +42,10 @@ export default function CityPicker() {
                         padding: '6px 32px 6px 12px',
                         borderRadius: 'var(--radius-md)',
                         transition: 'all var(--transition-fast)',
+                        minWidth: '120px'
                     }}
                 >
-                    {CITIES.map((city) => (
+                    {cities.map((city) => (
                         <option key={city.slug} value={city.slug} style={{ background: '#0a0a0b', color: 'white' }}>
                             {city.name}
                         </option>

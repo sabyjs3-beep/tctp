@@ -12,6 +12,12 @@ async function main() {
         { name: 'Delhi NCR', slug: 'delhi' },
         { name: 'Pune', slug: 'pune' },
         { name: 'Hyderabad', slug: 'hyderabad' },
+        { name: 'Chennai', slug: 'chennai' },
+        { name: 'Kolkata', slug: 'kolkata' },
+        { name: 'Gurgaon', slug: 'gurgaon' },
+        { name: 'Noida', slug: 'noida' },
+        { name: 'Chandigarh', slug: 'chandigarh' },
+        { name: 'Jaipur', slug: 'jaipur' },
     ];
 
     for (const city of cities) {
