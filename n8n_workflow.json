@@ -1,0 +1,172 @@
+{
+    "name": "TCTP Infallible Ingestion: Google Events",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "hours",
+                            "hoursInterval": 4
+                        }
+                    ]
+                }
+            },
+            "id": "e6a0d01d-5b3a-4f4c-8fac-123456789012",
+            "name": "Schedule Trigger",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const cities = ['mumbai', 'goa', 'bangalore', 'delhi', 'pune', 'hyderabad'];\nreturn cities.map(c => ({ json: { city: c } }));"
+            },
+            "id": "f7b1e02d-6c4b-5g5d-9gbd-abcdef123456",
+            "name": "City List",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 1,
+            "position": [
+                450,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "url": "=https://serpapi.com/search.json?engine=google_events&q=nightlife+events+in+{{ $json.city }}+tonight&api_key=YOUR_SERPAPI_KEY",
+                "options": {}
+            },
+            "id": "a1b2c3d4-e5f6-7g8h-9i0j-k1l2m3n4o5p6",
+            "name": "SerpApi: Fetch Events",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                650,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const events = $input.all();\nconst output = [];\n\nfor (const cityBatch of events) {\n  const citySlug = cityBatch.json.search_parameters.q.split('in ')[1].split(' tonight')[0];\n  const eventList = cityBatch.json.events_results || [];\n  \n  for (const event of eventList) {\n    output.push({\n      json: {\n        title: event.title,\n        venueName: event.venue?.name || 'Unknown Venue',\n        venueAddress: event.address?.join(', ') || null,\n        citySlug: citySlug,\n        date: new Date(event.startDate || Date.now()).toISOString().split('T')[0],\n        startTime: (event.startDate ? new Date(event.startDate).getHours().toString().padStart(2, '0') + ':00' : '22:00'),\n        description: event.description,\n        ticketUrl: event.link,\n        sourceType: 'automated',\n        vibeTags: ['nightlife']\n      }\n    });\n  }\n}\n\nreturn output;"
+            },
+            "id": "b2c3d4e5-f6g7-8h9i-0j1k-l2m3n4o5p6q7",
+            "name": "Format Payload",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 1,
+            "position": [
+                850,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://www.toocooltoparty.com/api/events",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer YOUR_INGEST_TOKEN"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "title",
+                            "value": "={{ $json.title }}"
+                        },
+                        {
+                            "name": "venueName",
+                            "value": "={{ $json.venueName }}"
+                        },
+                        {
+                            "name": "citySlug",
+                            "value": "={{ $json.citySlug }}"
+                        },
+                        {
+                            "name": "date",
+                            "value": "={{ $json.date }}"
+                        },
+                        {
+                            "name": "startTime",
+                            "value": "={{ $json.startTime }}"
+                        },
+                        {
+                            "name": "ticketUrl",
+                            "value": "={{ $json.ticketUrl }}"
+                        },
+                        {
+                            "name": "sourceType",
+                            "value": "automated"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "c3d4e5f6-g7h8-9i0j-1k2l-m3n4o5p6q7r8",
+            "name": "Push to TCTP",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                1050,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Schedule Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "City List",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "City List": {
+            "main": [
+                [
+                    {
+                        "node": "SerpApi: Fetch Events",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "SerpApi: Fetch Events": {
+            "main": [
+                [
+                    {
+                        "node": "Format Payload",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Format Payload": {
+            "main": [
+                [
+                    {
+                        "node": "Push to TCTP",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "active": false,
+    "settings": {
+        "executionOrder": "v1"
+    }
+}

@@ -5,12 +5,23 @@ import prisma from '@/lib/db';
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
+
+        // Security check for automated ingestion
+        const authHeader = request.headers.get('Authorization');
+        const ingestToken = process.env.INGEST_TOKEN;
+
+        // If it's an automated or community submission from an API client, check token
+        if (ingestToken && authHeader !== `Bearer ${ingestToken}`) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const {
             instagramUrl,
             title,
             description,
             venueName,
             venueAddress,
+            citySlug, // Add citySlug support for national routing
             date,
             startTime,
             endTime,
@@ -18,6 +29,7 @@ export async function POST(request: NextRequest) {
             vibeTags,
             ctaType,
             ticketUrl,
+            sourceType = 'community' // default to community
         } = body;
 
         // Validate required fields
@@ -42,26 +54,55 @@ export async function POST(request: NextRequest) {
             endDateTime = endDate;
         }
 
+        // Find or create city
+        let cityId = '';
+        if (citySlug) {
+            const city = await (prisma as any).city.findUnique({ where: { slug: citySlug.toLowerCase() } });
+            if (city) cityId = city.id;
+        }
+
+        // Fallback to Goa if no city provided or found
+        if (!cityId) {
+            const goa = await (prisma as any).city.findUnique({ where: { slug: 'goa' } });
+            if (goa) cityId = goa.id;
+        }
+
         // Find or create venue
         let venue = await prisma.venue.findFirst({
-            where: { name: venueName },
+            where: { name: venueName, cityId },
         });
 
         if (!venue) {
-            // Default to Goa for manual submissions for now
-            const goa = await (prisma as any).city.findUnique({ where: { slug: 'goa' } });
-            if (!goa) throw new Error('City "Goa" not found');
-
             venue = await (prisma.venue as any).create({
                 data: {
                     name: venueName,
-                    city: { connect: { id: goa.id } },
+                    city: { connect: { id: cityId } },
                     address: venueAddress || null,
                 },
             });
         }
 
         if (!venue) throw new Error('Failed to create or find venue');
+
+        // Check for duplicate event (same title, venue, and date)
+        const dateOnly = new Date(startDateTime.getFullYear(), startDateTime.getMonth(), startDateTime.getDate());
+        const nextDay = new Date(dateOnly);
+        nextDay.setDate(nextDay.getDate() + 1);
+
+        const existing = await prisma.event.findFirst({
+            where: {
+                title: { equals: title, mode: 'insensitive' },
+                venueId: venue.id,
+                startTime: {
+                    gte: dateOnly,
+                    lt: nextDay,
+                },
+            },
+        });
+
+        if (existing) {
+            return NextResponse.json({ success: true, message: 'Event already exists', id: existing.id });
+        }
 
         // Create event
         const event = await prisma.event.create({
@@ -71,33 +112,30 @@ export async function POST(request: NextRequest) {
                 startTime: startDateTime,
                 endTime: endDateTime,
                 venueId: venue.id,
-                sourceUrl: instagramUrl || null,
-                sourceType: 'community',
-                ctaType: ctaType || 'pay_at_venue',
-                ticketUrl: ctaType === 'external_ticket' ? ticketUrl : null,
-                vibeTags: vibeTags?.join(',') || null,
+                sourceUrl: instagramUrl || ticketUrl || null,
+                sourceType: sourceType,
+                ctaType: ctaType || (ticketUrl ? 'external_ticket' : 'pay_at_venue'),
+                ticketUrl: ticketUrl || null,
+                vibeTags: Array.isArray(vibeTags) ? vibeTags.join(',') : (vibeTags || null),
                 status: startDateTime <= new Date() ? 'live' : 'created',
             },
         });
 
         // Handle DJs
-        if (djs && djs.length > 0) {
+        if (djs && Array.isArray(djs) && djs.length > 0) {
             for (let i = 0; i < djs.length; i++) {
                 const djName = djs[i];
 
-                // Find or create DJ using the generated accessor
+                // Find or create DJ
                 let dj = await (prisma as any).dJ.findFirst({
                     where: { name: djName },
                 });
 
                 if (!dj) {
-                    const goa = await (prisma as any).city.findUnique({ where: { slug: 'goa' } });
-                    if (!goa) throw new Error('City "Goa" not found');
-
                     dj = await (prisma as any).dJ.create({
                         data: {
                             name: djName,
-                            city: { connect: { id: goa.id } },
+                            city: { connect: { id: cityId } },
                             genres: 'electronic',
                         },
                     });
@@ -106,8 +144,15 @@ export async function POST(request: NextRequest) {
                 if (!dj) continue;
 
                 // Link DJ to event
-                await prisma.eventDJ.create({
-                    data: {
+                await prisma.eventDJ.upsert({
+                    where: {
+                        eventId_djId: {
+                            eventId: event.id,
+                            djId: dj.id
+                        }
+                    },
+                    update: { order: i },
+                    create: {
                         eventId: event.id,
                         djId: dj.id,
                         order: i,
@@ -134,6 +179,10 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const filter = searchParams.get('filter') || 'tonight';
+        const citySlug = searchParams.get('city') || 'goa';
+
+        const city = await (prisma as any).city.findUnique({ where: { slug: citySlug.toLowerCase() } });
+        if (!city) return NextResponse.json({ error: 'City not found' }, { status: 404 });
 
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -160,6 +209,7 @@ export async function GET(request: NextRequest) {
 
         const events = await prisma.event.findMany({
             where: {
+                venue: { cityId: city.id },
                 startTime: {
                     gte: startDate,
                     lte: endDate,
@@ -172,6 +222,8 @@ export async function GET(request: NextRequest) {
                     include: { dj: { select: { id: true, name: true } } },
                     orderBy: { order: 'asc' },
                 },
+                votes: true,
+                presence: true,
             },
             orderBy: { startTime: 'asc' },
         });
