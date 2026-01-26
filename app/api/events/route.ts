@@ -217,7 +217,7 @@ export async function GET(request: NextRequest) {
                 status: { in: ['created', 'live'] },
             },
             include: {
-                venue: { select: { id: true, name: true } },
+                venue: { select: { id: true, name: true, address: true, mapUrl: true } },
                 djs: {
                     include: { dj: { select: { id: true, name: true } } },
                     orderBy: { order: 'asc' },

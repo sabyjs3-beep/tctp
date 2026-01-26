@@ -13,7 +13,7 @@ interface EventWithRelations {
     ticketUrl: string | null;
     sourceType: string;
     presenceCount: number;
-    venue: { id: string; name: string };
+    venue: { id: string; name: string; address?: string | null; mapUrl?: string | null };
     djs: { dj: { id: string; name: string } }[];
     votes: { module: string; value: string }[];
 }
@@ -159,6 +159,8 @@ export default async function CityPage(props: {
                             id={event.id}
                             title={event.title}
                             venueName={event.venue.name}
+                            venueAddress={event.venue.address}
+                            mapUrl={event.venue.mapUrl}
                             startTime={event.startTime}
                             endTime={event.endTime}
                             djs={event.djs.map((ed: any) => ed.dj)}
