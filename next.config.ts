@@ -1,4 +1,6 @@
-const nextConfig = {
+import { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
   // Disable these for smooth production deploy
   eslint: {
     ignoreDuringBuilds: true,
