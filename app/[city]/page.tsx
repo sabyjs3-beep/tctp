@@ -19,122 +19,77 @@ interface EventWithRelations {
 }
 
 async function getEvents(citySlug: string, filter: 'tonight' | 'weekend' = 'tonight') {
-    // Access city safely - try both lowercase and uppercase variations just in case
-    const slug = citySlug.toLowerCase();
-    const cityAccessor = (prisma as any).city || (prisma as any).City;
+    try {
+        const slug = citySlug.toLowerCase();
+        // Use findFirst with insensitive mode as a more robust fallback
+        const city = await (prisma as any).city.findFirst({
+            where: {
+                slug: {
+                    equals: slug,
+                    mode: 'insensitive'
+                }
+            }
+        });
 
-    if (!cityAccessor) {
-        console.error('❌ Prisma City accessor not found');
+        if (!city) {
+            console.error(`❌ City not found for slug: ${slug}`);
+            return null;
+        }
+
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        // Weekend: Friday 6pm to Sunday 11:59pm
+        const dayOfWeek = now.getDay();
+        const daysUntilFriday = (5 - dayOfWeek + 7) % 7;
+        const friday = new Date(today);
+        friday.setDate(friday.getDate() + daysUntilFriday);
+        friday.setHours(18, 0, 0, 0);
+
+        const sunday = new Date(friday);
+        sunday.setDate(sunday.getDate() + 2);
+        sunday.setHours(23, 59, 59, 999);
+
+        let startDate: Date;
+        let endDate: Date;
+
+        if (filter === 'tonight') {
+            startDate = now;
+            endDate = tomorrow;
+        } else {
+            startDate = friday;
+            endDate = sunday;
+        }
+
+        const events = await (prisma.event as any).findMany({
+            where: {
+                venue: { cityId: city.id },
+                startTime: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+                status: {
+                    in: ['created', 'live'],
+                },
+            },
+            include: {
+                venue: true,
+                djs: {
+                    include: { dj: true },
+                    orderBy: { order: 'asc' },
+                },
+                votes: true,
+            },
+            orderBy: { startTime: 'asc' },
+        });
+
+        return { events: events as unknown as EventWithRelations[], city };
+    } catch (error) {
+        console.error('❌ Error in getEvents:', error);
         return null;
     }
-
-    const city = await cityAccessor.findUnique({
-        where: { slug }
-    });
-
-    if (!city) {
-        console.error(`❌ City not found for slug: ${slug}`);
-        return null;
-    }
-
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    // Weekend: Friday 6pm to Sunday 11:59pm
-    const dayOfWeek = now.getDay();
-    const daysUntilFriday = (5 - dayOfWeek + 7) % 7;
-    const friday = new Date(today);
-    friday.setDate(friday.getDate() + daysUntilFriday);
-    friday.setHours(18, 0, 0, 0);
-
-    const sunday = new Date(friday);
-    sunday.setDate(sunday.getDate() + 2);
-    sunday.setHours(23, 59, 59, 999);
-
-    let startDate: Date;
-    let endDate: Date;
-
-    if (filter === 'tonight') {
-        startDate = now;
-        endDate = tomorrow;
-    } else {
-        startDate = friday;
-        endDate = sunday;
-    }
-
-    const events = await (prisma.event as any).findMany({
-        where: {
-            venue: { cityId: city.id },
-            startTime: {
-                gte: startDate,
-                lte: endDate,
-            },
-            status: {
-                in: ['created', 'live'],
-            },
-        },
-        include: {
-            venue: true,
-            djs: {
-                include: { dj: true },
-                orderBy: { order: 'asc' },
-            },
-            votes: true,
-        },
-        orderBy: { startTime: 'asc' },
-    });
-
-    return { events: events as unknown as EventWithRelations[], city };
-}
-
-function calculateLegitPercent(votes: any[]): number | undefined {
-    const legitVotes = votes.filter(v => v.module === 'legit');
-    if (legitVotes.length < 5) return undefined;
-
-    const positive = legitVotes.filter(v => v.value === 'positive').length;
-    return Math.round((positive / legitVotes.length) * 100);
-}
-
-function calculateQueueStatus(votes: any[]): string | undefined {
-    const queueVotes = votes.filter(v => v.module === 'queue');
-    if (queueVotes.length < 5) return undefined;
-
-    const counts: Record<string, number> = {};
-    queueVotes.forEach(v => {
-        counts[v.value] = (counts[v.value] || 0) + 1;
-    });
-
-    const labels: Record<string, string> = {
-        walkin: 'Walk-in',
-        short: '10-20 min',
-        long: '30-60 min',
-        notGettingIn: 'Not getting in',
-    };
-
-    const maxValue = Object.entries(counts).reduce((a, b) => a[1] > b[1] ? a : b);
-    return labels[maxValue[0]] || undefined;
-}
-
-function calculatePackedStatus(votes: any[]): string | undefined {
-    const packedVotes = votes.filter(v => v.module === 'packed');
-    if (packedVotes.length < 5) return undefined;
-
-    const counts: Record<string, number> = {};
-    packedVotes.forEach(v => {
-        counts[v.value] = (counts[v.value] || 0) + 1;
-    });
-
-    const labels: Record<string, string> = {
-        empty: 'Empty',
-        moderate: 'Moderate',
-        packed: 'Packed',
-        insane: 'Insane',
-    };
-
-    const maxValue = Object.entries(counts).reduce((a, b) => a[1] > b[1] ? a : b);
-    return labels[maxValue[0]] || undefined;
 }
 
 export default async function CityPage(props: {
@@ -145,10 +100,14 @@ export default async function CityPage(props: {
     const searchParams = await props.searchParams;
     const filter = (searchParams.filter === 'weekend' ? 'weekend' : 'tonight') as 'tonight' | 'weekend';
 
+    // Safety check: if city matches a static route that shouldn't be here
+    if (params.city === 'api' || params.city === 'create') {
+        notFound();
+    }
+
     const data = await getEvents(params.city, filter);
 
     if (!data) {
-        console.warn(`⚠️ Rendering 404 for city: ${params.city}`);
         notFound();
     }
 
@@ -217,4 +176,52 @@ export default async function CityPage(props: {
             )}
         </div>
     );
+}
+
+function calculateLegitPercent(votes: any[]): number | undefined {
+    const legitVotes = votes.filter(v => v.module === 'legit');
+    if (legitVotes.length < 5) return undefined;
+
+    const positive = legitVotes.filter(v => v.value === 'positive').length;
+    return Math.round((positive / legitVotes.length) * 100);
+}
+
+function calculateQueueStatus(votes: any[]): string | undefined {
+    const queueVotes = votes.filter(v => v.module === 'queue');
+    if (queueVotes.length < 5) return undefined;
+
+    const counts: Record<string, number> = {};
+    queueVotes.forEach(v => {
+        counts[v.value] = (counts[v.value] || 0) + 1;
+    });
+
+    const labels: Record<string, string> = {
+        walkin: 'Walk-in',
+        short: '10-20 min',
+        long: '30-60 min',
+        notGettingIn: 'Not getting in',
+    };
+
+    const maxValue = Object.entries(counts).reduce((a, b) => a[1] > b[1] ? a : b);
+    return labels[maxValue[0]] || undefined;
+}
+
+function calculatePackedStatus(votes: any[]): string | undefined {
+    const packedVotes = votes.filter(v => v.module === 'packed');
+    if (packedVotes.length < 5) return undefined;
+
+    const counts: Record<string, number> = {};
+    packedVotes.forEach(v => {
+        counts[v.value] = (counts[v.value] || 0) + 1;
+    });
+
+    const labels: Record<string, string> = {
+        empty: 'Empty',
+        moderate: 'Moderate',
+        packed: 'Packed',
+        insane: 'Insane',
+    };
+
+    const maxValue = Object.entries(counts).reduce((a, b) => a[1] > b[1] ? a : b);
+    return labels[maxValue[0]] || undefined;
 }
