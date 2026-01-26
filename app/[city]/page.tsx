@@ -19,9 +19,23 @@ interface EventWithRelations {
 }
 
 async function getEvents(citySlug: string, filter: 'tonight' | 'weekend' = 'tonight') {
-    // Access city safely
-    const city = await (prisma as any).city.findUnique({ where: { slug: citySlug } });
-    if (!city) return null;
+    // Access city safely - try both lowercase and uppercase variations just in case
+    const slug = citySlug.toLowerCase();
+    const cityAccessor = (prisma as any).city || (prisma as any).City;
+
+    if (!cityAccessor) {
+        console.error('❌ Prisma City accessor not found');
+        return null;
+    }
+
+    const city = await cityAccessor.findUnique({
+        where: { slug }
+    });
+
+    if (!city) {
+        console.error(`❌ City not found for slug: ${slug}`);
+        return null;
+    }
 
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -132,7 +146,11 @@ export default async function CityPage(props: {
     const filter = (searchParams.filter === 'weekend' ? 'weekend' : 'tonight') as 'tonight' | 'weekend';
 
     const data = await getEvents(params.city, filter);
-    if (!data) notFound();
+
+    if (!data) {
+        console.warn(`⚠️ Rendering 404 for city: ${params.city}`);
+        notFound();
+    }
 
     const { events, city } = data;
 
