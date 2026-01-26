@@ -36,7 +36,7 @@
         },
         {
             "parameters": {
-                "url": "=https://serpapi.com/search.json?engine=google_events&q=nightlife+events+in+{{ $json.city }}+tonight&api_key=YOUR_SERPAPI_KEY",
+                "url": "=https://serpapi.com/search.json?engine=google_events&q=nightlife+events+in+{{ $json.city }}+tonight&api_key=f01931c5a26268932f842957a72eb1e44dbccdfdc8578eb63e5751428f312041",
                 "options": {}
             },
             "id": "a1b2c3d4-e5f6-7g8h-9i0j-k1l2m3n4o5p6",
@@ -70,7 +70,7 @@
                     "parameters": [
                         {
                             "name": "Authorization",
-                            "value": "=Bearer YOUR_INGEST_TOKEN"
+                            "value": "=Bearer 953bd82999f04679a0c2622a4b00581a"
                         }
                     ]
                 },
