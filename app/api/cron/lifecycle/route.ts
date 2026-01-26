@@ -106,19 +106,19 @@ export async function GET(request: NextRequest) {
             });
         }
 
-        // Delete the events
-        const deletedEvents = await prisma.event.deleteMany({
-            where: {
-                status: 'archived',
-                updatedAt: { lte: fortyEightHoursAgo },
-            },
-        });
-        results.deleted = deletedEvents.count;
+        // 5. Run Automated Event Harvester
+        console.log('🤖 Triggering Event Harvester...');
+        const { HarvesterEngine } = await import('@/lib/harvester');
+        const harvester = new HarvesterEngine();
+        const harvestedCount = await harvester.run();
 
         return NextResponse.json({
             success: true,
             timestamp: now.toISOString(),
-            results,
+            results: {
+                ...results,
+                harvested: harvestedCount,
+            },
         });
     } catch (error) {
         console.error('Lifecycle cron error:', error);

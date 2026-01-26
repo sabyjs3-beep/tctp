@@ -66,13 +66,17 @@ export default function EventCard({
     return (
         <article className="event-card">
             {/* Source badge */}
-            {sourceType === 'community' && (
-                <div style={{ marginBottom: 'var(--space-2)' }}>
-                    <span className="vibe-tag" style={{ fontSize: '0.65rem' }}>
+            <div style={{ marginBottom: 'var(--space-2)' }}>
+                {sourceType === 'automated' ? (
+                    <span className="vibe-tag" style={{ fontSize: '0.65rem', opacity: 0.8 }}>
+                        📡 Automated feed sync
+                    </span>
+                ) : sourceType === 'community' && (
+                    <span className="vibe-tag" style={{ fontSize: '0.65rem', opacity: 0.8 }}>
                         🏷️ Community-sourced
                     </span>
-                </div>
-            )}
+                )}
+            </div>
 
             {/* Header */}
             <header className="event-card__header">
