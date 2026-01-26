@@ -71,6 +71,9 @@ export default function RootLayout({
         <footer className="footer">
           <div className="container">
             <p>Event information aggregated from public sources. Official links always provided.</p>
+            <p style={{ marginTop: '0.5rem', fontSize: '0.7rem', opacity: 0.3 }}>
+              Build: 2026-01-26.2 (Multi-city Stable)
+            </p>
             <p style={{ marginTop: '0.5rem' }}>
               <a href="/create">Add an event</a>
             </p>
