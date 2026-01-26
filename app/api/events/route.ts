@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
 
         // Find or create venue
         let venue = await prisma.venue.findFirst({
-            where: { name: { equals: venueName, mode: 'insensitive' } },
+            where: { name: venueName },
         });
 
         if (!venue) {
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
 
                 // Find or create DJ
                 let dj = await prisma.dJ.findFirst({
-                    where: { name: { equals: djName, mode: 'insensitive' } },
+                    where: { name: djName },
                 });
 
                 if (!dj) {
