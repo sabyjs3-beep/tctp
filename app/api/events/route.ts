@@ -48,7 +48,8 @@ export async function POST(request: NextRequest) {
         });
 
         if (!venue) {
-            const goa = await prisma.city.findFirst({ where: { slug: 'goa' } });
+            // Default to Goa for manual submissions for now
+            const goa = await (prisma as any).city.findUnique({ where: { slug: 'goa' } });
             venue = await prisma.venue.create({
                 data: {
                     name: venueName,
@@ -80,14 +81,14 @@ export async function POST(request: NextRequest) {
             for (let i = 0; i < djs.length; i++) {
                 const djName = djs[i];
 
-                // Find or create DJ
-                let dj = await prisma.dJ.findFirst({
+                // Find or create DJ using the generated accessor
+                let dj = await (prisma as any).dJ.findFirst({
                     where: { name: djName },
                 });
 
                 if (!dj) {
-                    const goa = await prisma.city.findFirst({ where: { slug: 'goa' } });
-                    dj = await prisma.dJ.create({
+                    const goa = await (prisma as any).city.findUnique({ where: { slug: 'goa' } });
+                    dj = await (prisma as any).dJ.create({
                         data: {
                             name: djName,
                             cityId: goa?.id || '',

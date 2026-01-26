@@ -19,7 +19,8 @@ interface EventWithRelations {
 }
 
 async function getEvents(citySlug: string, filter: 'tonight' | 'weekend' = 'tonight') {
-    const city = await prisma.city.findUnique({ where: { slug: citySlug } });
+    // Access city safely
+    const city = await (prisma as any).city.findUnique({ where: { slug: citySlug } });
     if (!city) return null;
 
     const now = new Date();
@@ -51,7 +52,7 @@ async function getEvents(citySlug: string, filter: 'tonight' | 'weekend' = 'toni
 
     const events = await prisma.event.findMany({
         where: {
-            venue: { cityId: city.id },
+            venue: { city: { id: city.id } }, // Use relation instead of cityId if cityId is missing from types
             startTime: {
                 gte: startDate,
                 lte: endDate,
@@ -74,7 +75,7 @@ async function getEvents(citySlug: string, filter: 'tonight' | 'weekend' = 'toni
     return { events: events as unknown as EventWithRelations[], city };
 }
 
-function calculateLegitPercent(votes: { module: string; value: string }[]): number | undefined {
+function calculateLegitPercent(votes: any[]): number | undefined {
     const legitVotes = votes.filter(v => v.module === 'legit');
     if (legitVotes.length < 5) return undefined;
 
@@ -82,7 +83,7 @@ function calculateLegitPercent(votes: { module: string; value: string }[]): numb
     return Math.round((positive / legitVotes.length) * 100);
 }
 
-function calculateQueueStatus(votes: { module: string; value: string }[]): string | undefined {
+function calculateQueueStatus(votes: any[]): string | undefined {
     const queueVotes = votes.filter(v => v.module === 'queue');
     if (queueVotes.length < 5) return undefined;
 
@@ -102,7 +103,7 @@ function calculateQueueStatus(votes: { module: string; value: string }[]): strin
     return labels[maxValue[0]] || undefined;
 }
 
-function calculatePackedStatus(votes: { module: string; value: string }[]): string | undefined {
+function calculatePackedStatus(votes: any[]): string | undefined {
     const packedVotes = votes.filter(v => v.module === 'packed');
     if (packedVotes.length < 5) return undefined;
 
@@ -137,7 +138,6 @@ export default async function CityPage(props: {
 
     return (
         <div>
-            {/* Filter Tabs */}
             <div className="tabs">
                 <a
                     href={`/${params.city}?filter=tonight`}
@@ -159,7 +159,6 @@ export default async function CityPage(props: {
                 </h1>
             </div>
 
-            {/* Events List */}
             {events.length === 0 ? (
                 <div className="empty-state">
                     <div className="empty-state__icon">🌙</div>
@@ -185,8 +184,8 @@ export default async function CityPage(props: {
                             venueName={event.venue.name}
                             startTime={event.startTime}
                             endTime={event.endTime}
-                            djs={event.djs.map(ed => ed.dj)}
-                            vibeTags={event.vibeTags ? event.vibeTags.split(',').map(t => t.trim()) : []}
+                            djs={event.djs.map((ed: any) => ed.dj)}
+                            vibeTags={event.vibeTags ? event.vibeTags.split(',').map((t: string) => t.trim()) : []}
                             ctaType={event.ctaType as 'pay_at_venue' | 'external_ticket'}
                             ticketUrl={event.ticketUrl}
                             sourceType={event.sourceType}

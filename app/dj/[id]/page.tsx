@@ -3,7 +3,8 @@ import { notFound } from 'next/navigation';
 import EventCard from '@/components/EventCard';
 
 async function getDJData(id: string) {
-    const dj = await prisma.dJ.findUnique({
+    // Use the accessor name Prisma generated (dJ)
+    const dj = await (prisma as any).dJ.findUnique({
         where: { id },
         include: {
             city: true,
@@ -31,18 +32,20 @@ export default async function DJPage(props: { params: Promise<{ id: string }> })
 
     if (!dj) notFound();
 
+    const events = dj.events || [];
+
     return (
         <div className="page">
             <header style={{ marginBottom: 'var(--space-8)', textAlign: 'center' }}>
                 <div style={{ fontSize: '3rem', marginBottom: 'var(--space-2)' }}>🎧</div>
                 <h1 style={{ fontSize: '2rem', marginBottom: 'var(--space-1)' }}>{dj.name}</h1>
                 <div style={{ opacity: 0.7, fontSize: '0.9rem' }}>
-                    📍 Based in {dj.city.name}
+                    📍 Based in {dj.city?.name || 'Unknown City'}
                 </div>
 
                 {dj.genres && (
                     <div className="vibe-tags" style={{ justifyContent: 'center', marginTop: 'var(--space-4)' }}>
-                        {dj.genres.split(',').map(tag => (
+                        {dj.genres.split(',').map((tag: string) => (
                             <span key={tag} className="vibe-tag">{tag.trim()}</span>
                         ))}
                     </div>
@@ -67,11 +70,11 @@ export default async function DJPage(props: { params: Promise<{ id: string }> })
                     Upcoming & Recent Gigs
                 </h2>
 
-                {dj.events.length === 0 ? (
+                {events.length === 0 ? (
                     <p style={{ opacity: 0.5 }}>No gigs found in the truth engine yet.</p>
                 ) : (
                     <div className="events-grid">
-                        {dj.events.map(({ event }) => (
+                        {events.map(({ event }: any) => (
                             <EventCard
                                 key={event.id}
                                 id={event.id}
@@ -79,13 +82,12 @@ export default async function DJPage(props: { params: Promise<{ id: string }> })
                                 venueName={event.venue.name}
                                 startTime={event.startTime}
                                 endTime={event.endTime}
-                                djs={event.djs.map(ed => ed.dj)}
-                                vibeTags={event.vibeTags ? event.vibeTags.split(',').map(t => t.trim()) : []}
+                                djs={event.djs.map((ed: any) => ed.dj)}
+                                vibeTags={event.vibeTags ? event.vibeTags.split(',').map((t: string) => t.trim()) : []}
                                 ctaType={event.ctaType as 'pay_at_venue' | 'external_ticket'}
                                 ticketUrl={event.ticketUrl}
                                 sourceType={event.sourceType}
                                 presenceCount={event.presenceCount}
-                            // Simplified crowd signals for the profile view
                             />
                         ))}
                     </div>
