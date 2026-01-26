@@ -79,6 +79,8 @@ model Event {
   // CTA
   ctaType     String      @default("pay_at_venue") // "pay_at_venue" | "external_ticket"
   ticketUrl   String?
+  ticketLinks Json?       // Array of { source: string, url: string }
+  priceRange  String?     // e.g., "₹500 - ₹1500"
   
   // Vibe tags (comma-separated)
   vibeTags    String?     // "dark,warehouse,underground"

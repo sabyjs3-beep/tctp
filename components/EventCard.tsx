@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 interface EventCardProps {
     id: string;
     title: string;
@@ -11,6 +13,8 @@ interface EventCardProps {
     vibeTags: string[];
     ctaType: 'pay_at_venue' | 'external_ticket';
     ticketUrl?: string | null;
+    ticketLinks?: { source: string; url: string }[] | null;
+    priceRange?: string | null;
     mapUrl?: string | null;
     sourceType: string;
     // Crowd signals
@@ -31,6 +35,8 @@ export default function EventCard({
     vibeTags,
     ctaType,
     ticketUrl,
+    ticketLinks,
+    priceRange,
     mapUrl,
     sourceType,
     legitPercent,
@@ -38,6 +44,8 @@ export default function EventCard({
     queueStatus,
     packedStatus,
 }: EventCardProps) {
+    const [showTickets, setShowTickets] = useState(false);
+
     const formatTime = (date: Date) => {
         return new Date(date).toLocaleTimeString('en-US', {
             hour: 'numeric',
@@ -62,7 +70,9 @@ export default function EventCard({
     };
 
     const handleCTAClick = () => {
-        if (ctaType === 'external_ticket' && ticketUrl) {
+        if (ticketLinks && ticketLinks.length > 1) {
+            setShowTickets(!showTickets);
+        } else if (ctaType === 'external_ticket' && ticketUrl) {
             window.open(ticketUrl, '_blank', 'noopener,noreferrer');
         }
     };
@@ -79,7 +89,7 @@ export default function EventCard({
                         {title}
                     </h2>
                 </a>
-                <div className="event-card__meta" style={{ fontSize: 'var(--text-xs)', gap: 'var(--space-2)' }}>
+                <div className="event-card__meta" style={{ fontSize: 'var(--text-xs)', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
                     <span className="event-card__meta-item">
                         📍 {venueName}
                     </span>
@@ -87,6 +97,11 @@ export default function EventCard({
                         {formatDate(startTime)} · {formatTime(startTime)}
                         {endTime && ` – ${formatTime(endTime)}`}
                     </span>
+                    {priceRange && (
+                        <span className="event-card__meta-item" style={{ color: 'var(--color-success)', fontWeight: '500' }}>
+                            💰 {priceRange}
+                        </span>
+                    )}
                 </div>
                 {venueAddress && (
                     <div style={{ fontSize: 'var(--text-xs)', opacity: 0.5, marginTop: '2px' }}>
@@ -170,20 +185,63 @@ export default function EventCard({
                 </div>
             )}
 
-            {/* Source + CTA Row */}
+            {/* Sources & CTAs */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'var(--space-3)' }}>
                 <span className="vibe-tag" style={{ fontSize: '0.6rem', opacity: 0.6 }}>
                     {sourceType === 'automated' ? '📡 Auto' : '🏷️ Community'}
                 </span>
-                {ctaType === 'pay_at_venue' ? (
-                    <a href={`/event/${id}`} className="btn btn--secondary" style={{ padding: '6px 12px', fontSize: 'var(--text-xs)' }}>
-                        View Details
-                    </a>
-                ) : (
-                    <button onClick={handleCTAClick} className="btn btn--primary" style={{ padding: '6px 12px', fontSize: 'var(--text-xs)' }}>
-                        Get Tickets →
-                    </button>
-                )}
+
+                <div style={{ position: 'relative' }}>
+                    {ctaType === 'pay_at_venue' ? (
+                        <a href={`/event/${id}`} className="btn btn--secondary" style={{ padding: '6px 12px', fontSize: 'var(--text-xs)' }}>
+                            View Details
+                        </a>
+                    ) : (
+                        <button onClick={handleCTAClick} className="btn btn--primary" style={{ padding: '6px 12px', fontSize: 'var(--text-xs)' }}>
+                            {ticketLinks && ticketLinks.length > 1 ? `Get Tickets (${ticketLinks.length})` : 'Get Tickets →'}
+                        </button>
+                    )}
+
+                    {/* Simple Dropdown for multiple tickets */}
+                    {showTickets && ticketLinks && (
+                        <div style={{
+                            position: 'absolute',
+                            bottom: '100%',
+                            right: 0,
+                            marginBottom: '5px',
+                            background: 'var(--color-bg-card)',
+                            border: '1px solid var(--color-border)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '5px',
+                            zIndex: 10,
+                            minWidth: '150px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '2px'
+                        }}>
+                            {ticketLinks.map((t, i) => (
+                                <a
+                                    key={i}
+                                    href={t.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                        display: 'block',
+                                        padding: '8px',
+                                        fontSize: 'var(--text-xs)',
+                                        textDecoration: 'none',
+                                        color: 'var(--color-text-primary)',
+                                        borderRadius: 'var(--radius-sm)',
+                                        background: 'var(--color-bg-elevated)'
+                                    }}
+                                >
+                                    {t.source || 'Ticket Source'} ↗
+                                </a>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
         </article>
     );

@@ -50,7 +50,7 @@
         },
         {
             "parameters": {
-                "jsCode": "const events = $input.all();\nconst output = [];\n\nfor (const cityBatch of events) {\n  // Extract city from the search query used (pass it through from previous node better next time, but this works for now)\n  // The query was: \"nightlife events in {city} tonight\"\n  const query = cityBatch.json.search_parameters.q;\n  const citySlug = query.split('in ')[1].split(' tonight')[0];\n  \n  const eventList = cityBatch.json.events_results || [];\n  \n  for (const event of eventList) {\n    output.push({\n      json: {\n        title: event.title,\n        venueName: event.venue?.name || 'Unknown Venue',\n        venueAddress: event.address?.join(', ') || null,\n        citySlug: citySlug,\n        // Handle various date formats. If date missing, default to future to avoid immediate filter-out\n        date: event.startDate ? new Date(event.startDate).toISOString().split('T')[0] : new Date(Date.now() + 86400000).toISOString().split('T')[0],\n        startTime: (event.startDate ? new Date(event.startDate).getHours().toString().padStart(2, '0') + ':00' : '22:00'),\n        description: event.description,\n        ticketUrl: event.link,\n        sourceType: 'automated',\n        vibeTags: ['nightlife']\n      }\n    });\n  }\n}\n\nreturn output;"
+                "jsCode": "const events = $input.all();\nconst output = [];\n\nfor (const cityBatch of events) {\n  // Extract city from the search query used (pass it through from previous node better next time, but this works for now)\n  // The query was: \"nightlife events in {city} tonight\"\n  const query = cityBatch.json.search_parameters.q;\n  const citySlug = query.split('in ')[1].split(' tonight')[0];\n  \n  const eventList = cityBatch.json.events_results || [];\n  \n  for (const event of eventList) {\n    const ticketLinks = event.ticket_info ? event.ticket_info.map(t => ({ source: t.source, url: t.link })) : [];\n    \n    output.push({\n      json: {\n        title: event.title,\n        venueName: event.venue?.name || 'Unknown Venue',\n        venueAddress: event.address?.join(', ') || null,\n        citySlug: citySlug,\n        // Handle various date formats. If date missing, default to future to avoid immediate filter-out\n        date: event.startDate ? new Date(event.startDate).toISOString().split('T')[0] : new Date(Date.now() + 86400000).toISOString().split('T')[0],\n        startTime: (event.startDate ? new Date(event.startDate).getHours().toString().padStart(2, '0') + ':00' : '22:00'),\n        description: event.description,\n        ticketUrl: event.link,\n        ticketLinks: ticketLinks,\n        priceRange: null,\n        sourceType: 'automated',\n        vibeTags: ['nightlife']\n      }\n    });\n  }\n}\n\nreturn output;"
             },
             "id": "b2c3d4e5-f6g7-8h9i-0j1k-l2m3n4o5p6q7",
             "name": "Format Payload",
@@ -100,6 +100,14 @@
                         {
                             "name": "ticketUrl",
                             "value": "={{ $json.ticketUrl }}"
+                        },
+                        {
+                            "name": "ticketLinks",
+                            "value": "={{ $json.ticketLinks }}"
+                        },
+                        {
+                            "name": "priceRange",
+                            "value": "={{ $json.priceRange }}"
                         },
                         {
                             "name": "sourceType",

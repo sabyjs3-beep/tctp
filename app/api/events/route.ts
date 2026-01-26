@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { Prisma } from '@prisma/client';
 
 // POST /api/events - Create a new event
 export async function POST(request: NextRequest) {
@@ -29,7 +30,9 @@ export async function POST(request: NextRequest) {
             vibeTags,
             ctaType,
             ticketUrl,
-            sourceType = 'community' // default to community
+            sourceType = 'community', // default to community
+            ticketLinks,
+            priceRange
         } = body;
 
         // Validate required fields
@@ -116,6 +119,8 @@ export async function POST(request: NextRequest) {
                 sourceType: sourceType,
                 ctaType: ctaType || (ticketUrl ? 'external_ticket' : 'pay_at_venue'),
                 ticketUrl: ticketUrl || null,
+                ticketLinks: ticketLinks ? (ticketLinks as any) : Prisma.JsonNull,
+                priceRange: priceRange || null,
                 vibeTags: Array.isArray(vibeTags) ? vibeTags.join(',') : (vibeTags || null),
                 status: startDateTime <= new Date() ? 'live' : 'created',
             },

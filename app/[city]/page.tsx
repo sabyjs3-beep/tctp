@@ -16,6 +16,8 @@ interface EventWithRelations {
     venue: { id: string; name: string; address?: string | null; mapUrl?: string | null };
     djs: { dj: { id: string; name: string } }[];
     votes: { module: string; value: string }[];
+    ticketLinks: unknown; // Prisma Json type comes as unknown/any
+    priceRange: string | null;
 }
 
 async function getEvents(citySlug: string, filter: 'tonight' | 'weekend' = 'tonight') {
@@ -191,6 +193,8 @@ export default async function CityPage(props: {
                             vibeTags={event.vibeTags ? event.vibeTags.split(',').map((t: string) => t.trim()) : []}
                             ctaType={event.ctaType as 'pay_at_venue' | 'external_ticket'}
                             ticketUrl={event.ticketUrl}
+                            ticketLinks={event.ticketLinks ? (event.ticketLinks as unknown as { source: string; url: string }[]) : undefined}
+                            priceRange={event.priceRange}
                             sourceType={event.sourceType}
                             legitPercent={calculateLegitPercent(event.votes)}
                             presenceCount={event.presenceCount}
