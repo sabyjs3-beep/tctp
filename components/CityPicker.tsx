@@ -47,7 +47,7 @@ export default function CityPicker() {
                 >
                     {CITIES.map((city) => (
                         <option key={city.slug} value={city.slug} style={{ background: '#0a0a0b', color: 'white' }}>
-                            {city.name} {city.trending ? '🔥' : ''}
+                            {city.name}
                         </option>
                     ))}
                 </select>

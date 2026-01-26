@@ -5,11 +5,11 @@ import { Analytics } from "@vercel/analytics/react";
 
 export const metadata: Metadata = {
   title: 'TCTP - Too Cool To Party',
-  description: 'Ephemeral, anonymous, crowd-verified nightlife discovery. No logins. No AI. Just vibes.',
-  keywords: ['nightlife', 'party', 'events', 'DJs', 'Goa', 'rave', 'techno', 'house'],
+  description: 'Ephemeral, anonymous, crowd-verified party and event discovery. No logins. No AI. Just vibes.',
+  keywords: ['party', 'events', 'DJs', 'Goa', 'Mumbai', 'Bangalore', 'gathering', 'underground', 'brunches'],
   openGraph: {
     title: 'TCTP - Too Cool To Party',
-    description: 'Find out what\'s happening tonight. Crowd-verified. Anonymous.',
+    description: 'Find out what\'s happening. Crowd-verified. Anonymous.',
     type: 'website',
   },
 };

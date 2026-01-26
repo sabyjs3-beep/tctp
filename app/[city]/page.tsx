@@ -132,7 +132,7 @@ export default async function CityPage(props: {
 
             <div style={{ marginBottom: 'var(--space-6)', textAlign: 'center' }}>
                 <h1 style={{ fontSize: '1.2rem', opacity: 0.7 }}>
-                    Nightlife in {city.name}
+                    Parties in {city.name}
                 </h1>
             </div>
 
