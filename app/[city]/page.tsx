@@ -50,9 +50,9 @@ async function getEvents(citySlug: string, filter: 'tonight' | 'weekend' = 'toni
         endDate = sunday;
     }
 
-    const events = await prisma.event.findMany({
+    const events = await (prisma.event as any).findMany({
         where: {
-            venue: { city: { id: city.id } }, // Use relation instead of cityId if cityId is missing from types
+            venue: { cityId: city.id },
             startTime: {
                 gte: startDate,
                 lte: endDate,

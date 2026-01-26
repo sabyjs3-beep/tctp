@@ -42,17 +42,21 @@ export class HarvesterEngine {
             if (!venue) {
                 // Default all harvested events to Goa for now
                 const cityAccessor = (prisma as any).city || (prisma as any).City;
+                if (!cityAccessor) throw new Error('Prisma City accessor not found');
+
                 const goa = await cityAccessor.findUnique({ where: { slug: 'goa' } });
                 if (!goa) throw new Error('City "Goa" not found in database');
 
-                venue = await prisma.venue.create({
+                venue = await (prisma.venue as any).create({
                     data: {
                         name: data.venueName,
                         address: data.venueAddress || null,
-                        cityId: goa.id,
+                        city: { connect: { id: goa.id } },
                     },
                 });
             }
+
+            if (!venue) return false;
 
             // Check for duplicate event (same title, venue, and date)
             const dateOnly = new Date(data.startTime.getFullYear(), data.startTime.getMonth(), data.startTime.getDate());
@@ -62,7 +66,7 @@ export class HarvesterEngine {
             const existing = await prisma.event.findFirst({
                 where: {
                     title: data.title,
-                    venueId: venue.id,
+                    venue: { id: venue.id },
                     startTime: {
                         gte: dateOnly,
                         lt: nextDay,
@@ -75,7 +79,7 @@ export class HarvesterEngine {
             }
 
             // Create event
-            const event = await prisma.event.create({
+            await prisma.event.create({
                 data: {
                     title: data.title,
                     description: data.description || null,

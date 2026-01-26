@@ -50,14 +50,18 @@ export async function POST(request: NextRequest) {
         if (!venue) {
             // Default to Goa for manual submissions for now
             const goa = await (prisma as any).city.findUnique({ where: { slug: 'goa' } });
-            venue = await prisma.venue.create({
+            if (!goa) throw new Error('City "Goa" not found');
+
+            venue = await (prisma.venue as any).create({
                 data: {
                     name: venueName,
-                    cityId: goa?.id || '',
+                    city: { connect: { id: goa.id } },
                     address: venueAddress || null,
                 },
             });
         }
+
+        if (!venue) throw new Error('Failed to create or find venue');
 
         // Create event
         const event = await prisma.event.create({
@@ -88,14 +92,18 @@ export async function POST(request: NextRequest) {
 
                 if (!dj) {
                     const goa = await (prisma as any).city.findUnique({ where: { slug: 'goa' } });
+                    if (!goa) throw new Error('City "Goa" not found');
+
                     dj = await (prisma as any).dJ.create({
                         data: {
                             name: djName,
-                            cityId: goa?.id || '',
+                            city: { connect: { id: goa.id } },
                             genres: 'electronic',
                         },
                     });
                 }
+
+                if (!dj) continue;
 
                 // Link DJ to event
                 await prisma.eventDJ.create({
