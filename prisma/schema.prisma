@@ -1,0 +1,176 @@
+// TCTP Database Schema - Too Cool To Party
+// Ephemeral, anonymous, crowd-verified nightlife discovery
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// ============================================
+// CORE ENTITIES
+// ============================================
+
+model Venue {
+  id        String   @id @default(cuid())
+  name      String
+  city      String   @default("Goa")
+  address   String?
+  mapUrl    String?
+  claimed   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events Event[]
+}
+
+model DJ {
+  id         String   @id @default(cuid())
+  name       String
+  city       String   @default("Goa")
+  genres     String   // Comma-separated: "techno,house,trance"
+  vibeTags   String?  // Comma-separated: "dark,warehouse,high-energy"
+  soundcloud String?
+  mixcloud   String?
+  instagram  String?
+  claimed    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  events EventDJ[]
+}
+
+model Event {
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime?
+  
+  // Venue relationship
+  venueId     String
+  venue       Venue       @relation(fields: [venueId], references: [id])
+  
+  // Source info
+  sourceUrl   String?     // Instagram post URL
+  sourceType  String      @default("community") // "community" | "verified" | "claimed"
+  
+  // CTA
+  ctaType     String      @default("pay_at_venue") // "pay_at_venue" | "external_ticket"
+  ticketUrl   String?
+  
+  // Vibe tags (comma-separated)
+  vibeTags    String?     // "dark,warehouse,underground"
+  
+  // Lifecycle state
+  status      String      @default("created") // "created" | "live" | "cooling" | "archived" | "deleted"
+  
+  // Crowd signals (cached counts for fast reads)
+  presenceCount Int       @default(0)
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  djs         EventDJ[]
+  votes       Vote[]
+  posts       Post[]
+  presence    Presence[]
+}
+
+model EventDJ {
+  id      String @id @default(cuid())
+  eventId String
+  djId    String
+  order   Int    @default(0) // For lineup ordering
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  dj    DJ    @relation(fields: [djId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, djId])
+}
+
+// ============================================
+// CROWD VERIFICATION
+// ============================================
+
+model Vote {
+  id        String   @id @default(cuid())
+  eventId   String
+  deviceId  String   // Anonymous device token
+  module    String   // "legit" | "packed" | "queue" | "lineup" | "price" | "safety" | "sound"
+  value     String   // The vote value (e.g., "positive", "negative", "packed", "walk_in", etc.)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  // One vote per device per module per event
+  @@unique([eventId, deviceId, module])
+  @@index([eventId, module])
+}
+
+model Presence {
+  id        String   @id @default(cuid())
+  eventId   String
+  deviceId  String
+  status    String   @default("here") // "here" | "going" | "skipped"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, deviceId])
+}
+
+// ============================================
+// EPHEMERAL THREAD
+// ============================================
+
+model Post {
+  id        String   @id @default(cuid())
+  eventId   String
+  deviceId  String
+  content   String?  // Text content (max 200 chars)
+  imageUrl  String?  // Optional photo drop
+  quickTag  String?  // "cops_outside" | "sound_bad" | "entry_strict" | "hidden_costs"
+  score     Int      @default(0) // Upvotes - downvotes
+  hidden    Boolean  @default(false) // Auto-hidden if score < -3
+  createdAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  votes PostVote[]
+
+  @@index([eventId, createdAt])
+}
+
+model PostVote {
+  id        String   @id @default(cuid())
+  postId    String
+  deviceId  String
+  value     Int      // 1 for upvote, -1 for downvote
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, deviceId])
+}
+
+// ============================================
+// RATE LIMITING (for anti-spam)
+// ============================================
+
+model RateLimit {
+  id        String   @id @default(cuid())
+  deviceId  String
+  action    String   // "post" | "vote" | "presence"
+  eventId   String?  // Optional, for event-scoped limits
+  count     Int      @default(1)
+  windowStart DateTime @default(now())
+
+  @@unique([deviceId, action, eventId])
+  @@index([deviceId, action])
+}
