@@ -36,7 +36,7 @@ export default function RootLayout({
         <header className="header">
           <div className="container header__inner">
             <a href="/" className="header__logo">TCTP</a>
-            <CityPicker currentCity="goa" />
+            <CityPicker />
           </div>
         </header>
 

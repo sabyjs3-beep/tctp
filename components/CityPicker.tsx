@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 const CITIES = [
     { name: 'Goa', slug: 'goa', trending: true },
@@ -11,8 +11,13 @@ const CITIES = [
     { name: 'Hyderabad', slug: 'hyderabad' },
 ];
 
-export default function CityPicker({ currentCity }: { currentCity: string }) {
+export default function CityPicker() {
     const router = useRouter();
+    const pathname = usePathname();
+
+    // Extract city from pathname (e.g. /mumbai -> mumbai)
+    const segments = pathname.split('/').filter(Boolean);
+    const currentCity = segments[0] || 'goa'; // Default to goa for root
 
     return (
         <div className="header__city" style={{ display: 'flex', alignItems: 'center' }}>
@@ -24,7 +29,7 @@ export default function CityPicker({ currentCity }: { currentCity: string }) {
                 }}>📍</span>
                 <select
                     className="city-select"
-                    defaultValue={currentCity}
+                    value={CITIES.some(c => c.slug === currentCity) ? currentCity : 'goa'}
                     onChange={(e) => router.push(`/${e.target.value}`)}
                     style={{
                         appearance: 'none',

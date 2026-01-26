@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Find or create venue
-        let venue = await prisma.venue.findFirst({
+        let venue = await (prisma.venue as any).findFirst({
             where: { name: venueName, cityId },
         });
 
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
         const nextDay = new Date(dateOnly);
         nextDay.setDate(nextDay.getDate() + 1);
 
-        const existing = await prisma.event.findFirst({
+        const existing = await (prisma.event as any).findFirst({
             where: {
                 title: { equals: title, mode: 'insensitive' },
                 venueId: venue.id,
@@ -207,7 +207,7 @@ export async function GET(request: NextRequest) {
             endDate = sunday;
         }
 
-        const events = await prisma.event.findMany({
+        const events = await (prisma.event as any).findMany({
             where: {
                 venue: { cityId: city.id },
                 startTime: {
