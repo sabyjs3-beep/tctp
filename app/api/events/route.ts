@@ -48,10 +48,11 @@ export async function POST(request: NextRequest) {
         });
 
         if (!venue) {
+            const goa = await prisma.city.findFirst({ where: { slug: 'goa' } });
             venue = await prisma.venue.create({
                 data: {
                     name: venueName,
-                    city: 'Goa',
+                    cityId: goa?.id || '',
                     address: venueAddress || null,
                 },
             });
@@ -85,10 +86,11 @@ export async function POST(request: NextRequest) {
                 });
 
                 if (!dj) {
+                    const goa = await prisma.city.findFirst({ where: { slug: 'goa' } });
                     dj = await prisma.dJ.create({
                         data: {
                             name: djName,
-                            city: 'Goa',
+                            cityId: goa?.id || '',
                             genres: 'electronic',
                         },
                     });

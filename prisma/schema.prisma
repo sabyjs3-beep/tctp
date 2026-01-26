@@ -14,10 +14,25 @@ datasource db {
 // CORE ENTITIES
 // ============================================
 
+model City {
+  id        String   @id @default(cuid())
+  name      String   @unique // e.g., "Goa", "Mumbai"
+  slug      String   @unique // e.g., "goa", "mumbai"
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  venues    Venue[]
+  djs       DJ[]
+}
+
 model Venue {
   id        String   @id @default(cuid())
   name      String
-  city      String   @default("Goa")
+  
+  cityId    String
+  city      City     @relation(fields: [cityId], references: [id])
+  
   address   String?
   mapUrl    String?
   claimed   Boolean  @default(false)
@@ -30,7 +45,10 @@ model Venue {
 model DJ {
   id         String   @id @default(cuid())
   name       String
-  city       String   @default("Goa")
+  
+  cityId     String
+  city       City      @relation(fields: [cityId], references: [id])
+  
   genres     String   // Comma-separated: "techno,house,trance"
   vibeTags   String?  // Comma-separated: "dark,warehouse,high-energy"
   soundcloud String?

@@ -40,11 +40,15 @@ export class HarvesterEngine {
             });
 
             if (!venue) {
+                // Default all harvested events to Goa for now
+                const goa = await prisma.city.findUnique({ where: { slug: 'goa' } });
+                if (!goa) throw new Error('City "Goa" not found in database');
+
                 venue = await prisma.venue.create({
                     data: {
                         name: data.venueName,
                         address: data.venueAddress || null,
-                        city: 'Goa',
+                        cityId: goa.id,
                     },
                 });
             }
