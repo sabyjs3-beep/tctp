@@ -115,24 +115,48 @@ export default async function CityPage(props: {
 
     return (
         <div>
-            <div className="tabs">
+            <div className="tabs" style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-6)' }}>
                 <a
                     href={`/${params.city}?filter=tonight`}
                     className={`tab ${filter === 'tonight' ? 'tab--active' : ''}`}
+                    style={{
+                        padding: '8px 16px',
+                        borderRadius: '100px',
+                        fontSize: '0.9rem',
+                        fontWeight: '500',
+                        textDecoration: 'none',
+                        background: filter === 'tonight' ? 'var(--color-accent-primary)' : 'rgba(255,255,255,0.05)',
+                        color: filter === 'tonight' ? 'white' : 'var(--color-text-secondary)',
+                        transition: 'all 0.2s ease',
+                        border: '1px solid',
+                        borderColor: filter === 'tonight' ? 'var(--color-accent-primary)' : 'rgba(255,255,255,0.1)'
+                    }}
                 >
                     Tonight
                 </a>
                 <a
                     href={`/${params.city}?filter=weekend`}
                     className={`tab ${filter === 'weekend' ? 'tab--active' : ''}`}
+                    style={{
+                        padding: '8px 16px',
+                        borderRadius: '100px',
+                        fontSize: '0.9rem',
+                        fontWeight: '500',
+                        textDecoration: 'none',
+                        background: filter === 'weekend' ? 'var(--color-accent-primary)' : 'rgba(255,255,255,0.05)',
+                        color: filter === 'weekend' ? 'white' : 'var(--color-text-secondary)',
+                        transition: 'all 0.2s ease',
+                        border: '1px solid',
+                        borderColor: filter === 'weekend' ? 'var(--color-accent-primary)' : 'rgba(255,255,255,0.1)'
+                    }}
                 >
                     This Weekend
                 </a>
             </div>
 
             <div style={{ marginBottom: 'var(--space-6)', textAlign: 'center' }}>
-                <h1 style={{ fontSize: '1.2rem', opacity: 0.7 }}>
-                    Parties in {city.name}
+                <h1 style={{ fontSize: '1.2rem', opacity: 0.9, fontWeight: '600', letterSpacing: '-0.5px' }}>
+                    {events.length} {events.length === 1 ? 'Party' : 'Parties'} in {city.name} {filter === 'tonight' ? 'Tonight' : 'This Weekend'}
                 </h1>
             </div>
 
