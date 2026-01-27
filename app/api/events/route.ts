@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { Prisma } from '@prisma/client';
+import { generateFingerprint } from '@/lib/normalization';
 
 // POST /api/events - Create a new event
 export async function POST(request: NextRequest) {
@@ -89,24 +90,27 @@ export async function POST(request: NextRequest) {
 
         if (!venue) throw new Error('Failed to create or find venue');
 
-        // Check for duplicate event (same title, venue, and date)
-        const dateOnly = new Date(startDateTime.getFullYear(), startDateTime.getMonth(), startDateTime.getDate());
-        const nextDay = new Date(dateOnly);
-        nextDay.setDate(nextDay.getDate() + 1);
+        // Data Integrity: Generate Fingerprint
+        const fingerprint = generateFingerprint(title, venueName, date);
 
-        const existing = await (prisma.event as any).findFirst({
-            where: {
-                title: { equals: title, mode: 'insensitive' },
-                venueId: venue.id,
-                startTime: {
-                    gte: dateOnly,
-                    lt: nextDay,
-                },
-            },
+        // Check for existing event via Fingerprint
+        const existingByFingerprint = await (prisma.event as any).findUnique({
+            where: { fingerprint }
         });
 
-        if (existing) {
-            return NextResponse.json({ success: true, message: 'Event already exists', id: existing.id });
+        if (existingByFingerprint) {
+            // Source Hierarchy Check:
+            // If existing is 'verified' or 'community', and incoming is 'automated', REJECT.
+            if (sourceType === 'automated' && existingByFingerprint.sourceType !== 'automated') {
+                return NextResponse.json({
+                    success: true,
+                    message: 'Skipped: Higher integrity source exists',
+                    id: existingByFingerprint.id
+                });
+            }
+
+            // Otherwise, we could update, but for now, just return existing to prevent dupes
+            return NextResponse.json({ success: true, message: 'Event already exists (Fingerprint Match)', id: existingByFingerprint.id });
         }
 
         // Create event
@@ -125,6 +129,7 @@ export async function POST(request: NextRequest) {
                 priceRange: priceRange || null,
                 vibeTags: Array.isArray(vibeTags) ? vibeTags.join(',') : (vibeTags || null),
                 status: startDateTime <= new Date() ? 'live' : 'created',
+                fingerprint: fingerprint, // Store hash
             },
         });
 

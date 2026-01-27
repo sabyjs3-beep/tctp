@@ -91,6 +91,9 @@ model Event {
   // Crowd signals (cached counts for fast reads)
   presenceCount Int       @default(0)
   
+  // Data Integrity
+  fingerprint String?     @unique // SHA256(title+venue+date)
+
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
