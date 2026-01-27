@@ -96,6 +96,44 @@
   --z-sticky: 50;
   --z-modal: 100;
   --z-toast: 200;
+
+  /* Animation Easing */
+  --ease-elastic: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 /* ============================================
@@ -171,10 +209,17 @@ button {
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
-  background: rgba(10, 10, 11, 0.9);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--color-border);
+  background: rgba(10, 10, 11, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   padding: var(--space-4) 0;
+  transition: all var(--transition-base);
+}
+
+.header:hover {
+  background: rgba(10, 10, 11, 0.85);
+  border-bottom-color: rgba(255, 255, 255, 0.1);
 }
 
 .header__inner {

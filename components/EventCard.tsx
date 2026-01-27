@@ -25,6 +25,7 @@ interface EventCardProps {
     presenceCount: number;
     queueStatus?: string;
     packedStatus?: string;
+    index?: number;
 }
 
 export default function EventCard({
@@ -48,8 +49,12 @@ export default function EventCard({
     presenceCount,
     queueStatus,
     packedStatus,
+    index = 0,
 }: EventCardProps) {
     const [showTickets, setShowTickets] = useState(false);
+
+    // Animation delay based on index
+    const animationDelay = `${index * 50}ms`;
 
     const formatTime = (date: Date) => {
         return new Date(date).toLocaleTimeString('en-US', {
@@ -90,7 +95,15 @@ export default function EventCard({
     const saved = isSaved(id);
 
     return (
-        <article className="event-card" style={{ padding: 'var(--space-4)', position: 'relative' }}>
+        <article
+            className="event-card"
+            style={{
+                padding: 'var(--space-4)',
+                position: 'relative',
+                animation: 'fadeInUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) both',
+                animationDelay: animationDelay
+            }}
+        >
             {/* Save Button */}
             <button
                 onClick={(e) => {
@@ -129,7 +142,7 @@ export default function EventCard({
                     </span>
                     <span className="event-card__meta-item">
                         {formatDate(startTime)} · {formatTime(startTime)}
-                        {endTime && ` – ${formatTime(endTime)}`}
+                        {endTime ? ` – ${formatTime(endTime)}` : ''}
                     </span>
                     {priceRange && (
                         <span className="event-card__meta-item" style={{ color: 'var(--color-success)', fontWeight: '500' }}>
@@ -236,7 +249,6 @@ export default function EventCard({
                         </button>
                     )}
 
-                    {/* Simple Dropdown for multiple tickets */}
                     {showTickets && ticketLinks && (
                         <div style={{
                             position: 'absolute',

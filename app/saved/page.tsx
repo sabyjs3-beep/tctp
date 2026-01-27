@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getDeviceToken } from '@/lib/device';
 import EventCard from '@/components/EventCard';
+import SkeletonCard from '@/components/SkeletonCard';
 import { useSavedEvents } from '@/components/SavedEventsContext';
 
 export default function SavedPage() {
@@ -53,8 +54,13 @@ export default function SavedPage() {
 
     if (loading) {
         return (
-            <div style={{ padding: 'var(--space-8)', textAlign: 'center', opacity: 0.5 }}>
-                Loading your agenda...
+            <div className="container" style={{ padding: 'var(--space-4) 0' }}>
+                <div style={{ marginLeft: 'auto', marginRight: 'auto', width: '200px', height: '30px', background: 'var(--color-bg-elevated)', borderRadius: '8px', marginBottom: 'var(--space-6)', opacity: 0.5 }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                    <SkeletonCard />
+                    <SkeletonCard />
+                    <SkeletonCard />
+                </div>
             </div>
         );
     }
