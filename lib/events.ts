@@ -15,6 +15,7 @@ export interface EventWithRelations {
     votes: { module: string; value: string }[];
     ticketLinks: unknown; // Prisma Json type
     priceRange: string | null;
+    slug: string | null;
 }
 
 export async function getEvents(

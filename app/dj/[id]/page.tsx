@@ -12,7 +12,7 @@ async function getDJData(id: string) {
                 include: {
                     event: {
                         include: {
-                            venue: true,
+                            venue: { include: { city: true } },
                             djs: { include: { dj: true } },
                             votes: true,
                         }
@@ -88,6 +88,8 @@ export default async function DJPage(props: { params: Promise<{ id: string }> })
                                 ticketUrl={event.ticketUrl}
                                 sourceType={event.sourceType}
                                 presenceCount={event.presenceCount}
+                                citySlug={event.venue.city.slug}
+                                slug={event.slug}
                             />
                         ))}
                     </div>

@@ -93,6 +93,7 @@ model Event {
   
   // Data Integrity
   fingerprint String?     @unique // SHA256(title+venue+date)
+  slug        String?     @unique // "hilltop-techno-party-jan-27"
 
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { Prisma } from '@prisma/client';
-import { generateFingerprint } from '@/lib/normalization';
+import { generateFingerprint, generateSlug } from '@/lib/normalization';
 
 // POST /api/events - Create a new event
 export async function POST(request: NextRequest) {
@@ -130,6 +130,7 @@ export async function POST(request: NextRequest) {
                 vibeTags: Array.isArray(vibeTags) ? vibeTags.join(',') : (vibeTags || null),
                 status: startDateTime <= new Date() ? 'live' : 'created',
                 fingerprint: fingerprint, // Store hash
+                slug: generateSlug(title, `${citySlug || 'goa'}-${date}`),
             },
         });
 

@@ -150,6 +150,7 @@ export default async function CityPage(props: {
                             priceRange={event.priceRange}
                             sourceType={event.sourceType}
                             citySlug={params.city}
+                            slug={event.slug}
                             legitPercent={calculateLegitPercent(event.votes)}
                             presenceCount={event.presenceCount}
                             queueStatus={calculateStatus(event.votes, 'queue', { walkin: 'Walk-in', short: '10-20m', long: '30-60m', notGettingIn: 'No Entry' })}

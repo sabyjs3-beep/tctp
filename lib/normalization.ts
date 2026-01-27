@@ -25,3 +25,16 @@ export function generateFingerprint(title: string, venueName: string, date: stri
     const raw = `${normTitle}|${normVenue}|${normDate}`;
     return crypto.createHash('sha256').update(raw).digest('hex');
 }
+
+/**
+ * Creates a URL-friendly slug.
+ * Example: "Techno Party", "Goa" -> "techno-party-goa"
+ */
+export function generateSlug(title: string, suffix: string = ''): string {
+    const base = normalizeString(title).replace(/\s+/g, '-');
+    const end = normalizeString(suffix).replace(/\s+/g, '-');
+    const random = Math.floor(Math.random() * 1000).toString(); // prevent collisions
+
+    // e.g., "techno-party-goa-jan-27" (we will append date in usage)
+    return `${base}-${end}-${random}`.toLowerCase();
+}

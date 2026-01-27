@@ -18,6 +18,7 @@ interface EventCardProps {
     mapUrl?: string | null;
     sourceType: string;
     citySlug: string;
+    slug?: string | null;
     // Crowd signals
     legitPercent?: number;
     presenceCount: number;
@@ -41,6 +42,7 @@ export default function EventCard({
     mapUrl,
     sourceType,
     citySlug,
+    slug,
     legitPercent,
     presenceCount,
     queueStatus,
@@ -86,7 +88,7 @@ export default function EventCard({
         <article className="event-card" style={{ padding: 'var(--space-4)' }}>
             {/* Compact Header */}
             <header className="event-card__header" style={{ marginBottom: 'var(--space-2)' }}>
-                <a href={`/${citySlug}/event/${id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <a href={`/${citySlug}/event/${slug || id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                     <h2 className="event-card__title" style={{ fontSize: 'var(--text-base)', marginBottom: '2px' }}>
                         {title}
                     </h2>
