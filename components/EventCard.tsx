@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSavedEvents } from '@/components/SavedEventsContext';
 
 interface EventCardProps {
     id: string;
@@ -84,8 +85,37 @@ export default function EventCard({
     // Check if we have any crowd signals to show
     const hasCrowdSignals = legitPercent !== undefined || presenceCount > 0 || queueStatus || packedStatus;
 
+    // Save/Bookmark logic
+    const { isSaved, toggleSave } = useSavedEvents();
+    const saved = isSaved(id);
+
     return (
-        <article className="event-card" style={{ padding: 'var(--space-4)' }}>
+        <article className="event-card" style={{ padding: 'var(--space-4)', position: 'relative' }}>
+            {/* Save Button */}
+            <button
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleSave(id);
+                }}
+                style={{
+                    position: 'absolute',
+                    top: 'var(--space-4)',
+                    right: 'var(--space-4)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '1.2rem',
+                    zIndex: 2,
+                    padding: '4px',
+                    transition: 'transform 0.2s',
+                    transform: saved ? 'scale(1.1)' : 'scale(1)',
+                    opacity: saved ? 1 : 0.3
+                }}
+                title={saved ? "Remove from saved" : "Save this event"}
+            >
+                {saved ? '❤️' : '🤍'}
+            </button>
             {/* Compact Header */}
             <header className="event-card__header" style={{ marginBottom: 'var(--space-2)' }}>
                 <a href={`/${citySlug}/event/${slug || id}`} style={{ textDecoration: 'none', color: 'inherit' }}>

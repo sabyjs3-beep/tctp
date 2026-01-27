@@ -103,6 +103,7 @@ model Event {
   votes       Vote[]
   posts       Post[]
   presence    Presence[]
+  savedEvents SavedEvent[]
 }
 
 model EventDJ {
@@ -197,4 +198,20 @@ model RateLimit {
 
   @@unique([deviceId, action, eventId])
   @@index([deviceId, action])
+}
+
+// ============================================
+// USER SAVES (Bookmarks)
+// ============================================
+
+model SavedEvent {
+  id        String   @id @default(cuid())
+  deviceId  String
+  eventId   String
+  createdAt DateTime @default(now())
+
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, eventId])
+  @@index([deviceId])
 }

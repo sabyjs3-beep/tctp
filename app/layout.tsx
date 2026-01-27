@@ -16,8 +16,8 @@ export const metadata: Metadata = {
 
 import CityPicker from '@/components/CityPicker';
 import Search from '@/components/Search';
-
 import prisma from '@/lib/db';
+import { Providers } from '@/components/Providers';
 
 export default async function RootLayout({
   children,
@@ -41,37 +41,41 @@ export default async function RootLayout({
         />
       </head>
       <body>
-        {/* Header */}
-        <header className="header">
+        <Providers>
+          {/* Header */}
+          <header className="header">
 
-          <div className="container header__inner">
-            <a href="/" className="header__logo">TCTP</a>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <CityPicker cities={cities} />
-              <Search />
+            <div className="container header__inner">
+              <a href="/" className="header__logo">TCTP</a>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <CityPicker cities={cities} />
+                <Search />
+              </div>
             </div>
-          </div>
-        </header>
+          </header>
 
-        {/* Main Content */}
-        <main className="page">
-          <div className="container">
-            {children}
-          </div>
-        </main>
+          {/* Main Content */}
+          <main className="page">
+            <div className="container">
+              {children}
+            </div>
+          </main>
 
-        {/* Footer */}
-        <footer className="footer">
-          <div className="container">
-            <p>Event information aggregated from public sources. Official links always provided.</p>
-            <p style={{ marginTop: '0.5rem', fontSize: '0.7rem', opacity: 0.3 }}>
-              Build: 2026-01-26.2 (Multi-city Stable)
-            </p>
-            <p style={{ marginTop: '0.5rem' }}>
-              <a href="/create">Add an event</a>
-            </p>
-          </div>
-        </footer>
+          {/* Footer */}
+          <footer className="footer">
+            <div className="container">
+              <p>Event information aggregated from public sources. Official links always provided.</p>
+              <p style={{ marginTop: '0.5rem', fontSize: '0.7rem', opacity: 0.3 }}>
+                Build: 2026-01-26.2 (Multi-city Stable)
+              </p>
+              <p style={{ marginTop: '0.5rem' }}>
+                <a href="/create">Add an event</a>
+                <span style={{ margin: '0 8px', opacity: 0.2 }}>|</span>
+                <a href="/saved">My Saved Events</a>
+              </p>
+            </div>
+          </footer>
+        </Providers>
         <SpeedInsights />
         <Analytics />
       </body>
