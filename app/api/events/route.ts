@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { Prisma } from '@prisma/client';
-import { generateFingerprint, generateSlug } from '@/lib/normalization';
+import { generateFingerprint, generateSlug, calculateSimilarity } from '@/lib/normalization';
 
 // POST /api/events - Create a new event
 export async function POST(request: NextRequest) {
@@ -73,17 +73,39 @@ export async function POST(request: NextRequest) {
             if (goa) cityId = goa.id;
         }
 
-        // Find or create venue
-        let venue = await (prisma.venue as any).findFirst({
+        // Find or create venue with Fuzzy Matching
+        let venue = null;
+
+        // 1. Try Exact Match First (Fastest)
+        venue = await (prisma.venue as any).findFirst({
             where: { name: venueName, cityId },
         });
 
+        // 2. If no exact match, try Fuzzy Match against existing venues in this city
+        if (!venue) {
+            const cityVenues = await (prisma.venue as any).findMany({
+                where: { cityId },
+                select: { id: true, name: true }
+            });
+
+            // Check if any existing venue is > 85% similar
+            const bestMatch = cityVenues.find((v: any) => calculateSimilarity(v.name, venueName) > 0.85);
+
+            if (bestMatch) {
+                console.log(`Fuzzy Match: Merging "${venueName}" into existing "${bestMatch.name}" (${bestMatch.id})`);
+                venue = bestMatch;
+            }
+        }
+
+        // 3. If still no venue, create it
         if (!venue) {
             venue = await (prisma.venue as any).create({
                 data: {
                     name: venueName,
                     city: { connect: { id: cityId } },
                     address: venueAddress || null,
+                    // If Source is Automated/Google, mark as unclaimed
+                    claimed: false,
                 },
             });
         }
