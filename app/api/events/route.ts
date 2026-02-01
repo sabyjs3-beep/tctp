@@ -3,108 +3,92 @@ import prisma from '@/lib/db';
 import { Prisma } from '@prisma/client';
 import { generateFingerprint, generateSlug, calculateSimilarity } from '@/lib/normalization';
 
-// POST /api/events - Create a new event
-export async function POST(request: NextRequest) {
-    try {
-        const body = await request.json();
+// Helper: Process a single event payload
+async function processEvent(body: any, ingestToken?: string) {
+    const {
+        instagramUrl,
+        title,
+        description,
+        venueName,
+        venueAddress,
+        citySlug, // Add citySlug support for national routing
+        date,
+        startTime,
+        endTime,
+        djs,
+        vibeTags,
+        ctaType,
+        ticketUrl,
+        sourceType = 'community', // default to community
+        ticketLinks,
+        priceRange,
+        // Rich Data fields
+        googlePlaceId,
+        lat,
+        lng,
+        imageUrl,
+        organizer
+    } = body;
 
-        // Security check for automated ingestion
-        const authHeader = request.headers.get('Authorization');
-        const ingestToken = process.env.INGEST_TOKEN;
+    // Validate required fields
+    if (!title || !venueName || !date || !startTime) {
+        return { error: 'Title, venue name, date, and start time are required', status: 400 };
+    }
 
-        // If it's an automated or community submission from an API client, check token
-        if (ingestToken && authHeader !== `Bearer ${ingestToken}`) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Parse dates (Force IST context by appending offset)
+    const startDateTime = new Date(`${date}T${startTime}:00+05:30`);
+    let endDateTime: Date | null = null;
+
+    if (endTime) {
+        // Handle events that go past midnight
+        const endDate = new Date(`${date}T${endTime}:00+05:30`);
+        if (endDate < startDateTime) {
+            // Add a day if end time is before start time (e.g., 22:00 to 04:00)
+            endDate.setDate(endDate.getDate() + 1);
         }
+        endDateTime = endDate;
+    }
 
-        const {
-            instagramUrl,
-            title,
-            description,
-            venueName,
-            venueAddress,
-            citySlug, // Add citySlug support for national routing
-            date,
-            startTime,
-            endTime,
-            djs,
-            vibeTags,
-            ctaType,
-            ticketUrl,
-            sourceType = 'community', // default to community
-            ticketLinks,
-            priceRange,
-            // Rich Data fields
-            googlePlaceId,
-            lat,
-            lng,
-            imageUrl,
-            organizer
-        } = body;
+    // Find or create city
+    let cityId = '';
+    if (citySlug) {
+        const city = await (prisma as any).city.findUnique({ where: { slug: citySlug.toLowerCase() } });
+        if (city) cityId = city.id;
+    }
 
-        // Validate required fields
-        if (!title || !venueName || !date || !startTime) {
-            return NextResponse.json(
-                { error: 'Title, venue name, date, and start time are required' },
-                { status: 400 }
-            );
-        }
+    // Fallback to Goa if no city provided or found
+    if (!cityId) {
+        const goa = await (prisma as any).city.findUnique({ where: { slug: 'goa' } });
+        if (goa) cityId = goa.id;
+    }
 
-        // Parse dates (Force IST context by appending offset)
-        // Incoming strings are "2024-12-25" and "22:00" (Local India Time)
-        // We must tell Date constructor this is +05:30, otherwise Vercel (UTC) acts as if it's +00:00
-        const startDateTime = new Date(`${date}T${startTime}:00+05:30`);
-        let endDateTime: Date | null = null;
+    // Find or create venue with Fuzzy Matching
+    let venue = null;
 
-        if (endTime) {
-            // Handle events that go past midnight
-            const endDate = new Date(`${date}T${endTime}:00+05:30`);
-            if (endDate < startDateTime) {
-                // Add a day if end time is before start time (e.g., 22:00 to 04:00)
-                endDate.setDate(endDate.getDate() + 1);
-            }
-            endDateTime = endDate;
-        }
+    // 1. Try Exact Match First (Fastest)
+    venue = await (prisma.venue as any).findFirst({
+        where: { name: venueName, cityId },
+    });
 
-        // Find or create city
-        let cityId = '';
-        if (citySlug) {
-            const city = await (prisma as any).city.findUnique({ where: { slug: citySlug.toLowerCase() } });
-            if (city) cityId = city.id;
-        }
-
-        // Fallback to Goa if no city provided or found
-        if (!cityId) {
-            const goa = await (prisma as any).city.findUnique({ where: { slug: 'goa' } });
-            if (goa) cityId = goa.id;
-        }
-
-        // Find or create venue with Fuzzy Matching
-        let venue = null;
-
-        // 1. Try Exact Match First (Fastest)
-        venue = await (prisma.venue as any).findFirst({
-            where: { name: venueName, cityId },
+    // 2. If no exact match, try Fuzzy Match against existing venues in this city
+    if (!venue) {
+        const cityVenues = await (prisma.venue as any).findMany({
+            where: { cityId },
+            select: { id: true, name: true }
         });
 
-        // 2. If no exact match, try Fuzzy Match against existing venues in this city
-        if (!venue) {
-            const cityVenues = await (prisma.venue as any).findMany({
-                where: { cityId },
-                select: { id: true, name: true }
-            });
+        // Check if any existing venue is > 85% similar
+        const bestMatch = cityVenues.find((v: any) => calculateSimilarity(v.name, venueName) > 0.85);
 
-            // Check if any existing venue is > 85% similar
-            const bestMatch = cityVenues.find((v: any) => calculateSimilarity(v.name, venueName) > 0.85);
-
-            if (bestMatch) {
-                console.log(`Fuzzy Match: Merging "${venueName}" into existing "${bestMatch.name}" (${bestMatch.id})`);
-                venue = bestMatch;
-            }
+        if (bestMatch) {
+            console.log(`Fuzzy Match: Merging "${venueName}" into existing "${bestMatch.name}" (${bestMatch.id})`);
+            venue = bestMatch;
         }
+    }
 
-        // 3. If still no venue, create it
-        if (!venue) {
+    // 3. If still no venue, create it
+    if (!venue) {
+        try {
             venue = await (prisma.venue as any).create({
                 data: {
                     name: venueName,
@@ -118,131 +102,188 @@ export async function POST(request: NextRequest) {
                     claimed: false,
                 },
             });
+        } catch (e) {
+            // Handle race condition where venue might be created by another concurrent request
+            venue = await (prisma.venue as any).findFirst({
+                where: { name: venueName, cityId },
+            });
+        }
+    }
+
+    if (!venue) throw new Error('Failed to create or find venue');
+
+    // Data Integrity: Generate Fingerprint
+    const fingerprint = generateFingerprint(title, venueName, date);
+
+    // Check for existing event via Fingerprint
+    const existingByFingerprint = await (prisma.event as any).findUnique({
+        where: { fingerprint }
+    });
+
+    if (existingByFingerprint) {
+        // Source Hierarchy Check:
+        // If existing is 'verified' or 'community', and incoming is 'automated', REJECT.
+        if (sourceType === 'automated' && existingByFingerprint.sourceType !== 'automated') {
+            return {
+                success: true,
+                message: 'Skipped: Higher integrity source exists',
+                id: existingByFingerprint.id,
+                skipped: true
+            };
         }
 
-        if (!venue) throw new Error('Failed to create or find venue');
+        // Otherwise, we could update, but for now, just return existing to prevent dupes
+        return { success: true, message: 'Event already exists (Fingerprint Match)', id: existingByFingerprint.id, skipped: true };
+    }
 
-        // Data Integrity: Generate Fingerprint
-        const fingerprint = generateFingerprint(title, venueName, date);
+    // Create event
+    const event = await prisma.event.create({
+        data: {
+            title,
+            description: description || null,
+            startTime: startDateTime,
+            endTime: endDateTime,
+            venueId: venue.id,
+            sourceUrl: instagramUrl || ticketUrl || null,
+            sourceType: sourceType,
+            organizer: organizer || null,
+            imageUrl: imageUrl || null,
+            ctaType: ctaType || (ticketUrl ? 'external_ticket' : 'pay_at_venue'),
+            ticketUrl: ticketUrl || null,
+            ticketLinks: ticketLinks ? (ticketLinks as any) : Prisma.JsonNull as any,
+            priceRange: priceRange || null,
+            vibeTags: Array.isArray(vibeTags) ? vibeTags.join(',') : (vibeTags || null),
+            status: startDateTime <= new Date() ? 'live' : 'created',
+            fingerprint: fingerprint, // Store hash
+            slug: generateSlug(title, `${citySlug || 'goa'}-${date}`),
+        },
+    });
 
-        // Check for existing event via Fingerprint
-        const existingByFingerprint = await (prisma.event as any).findUnique({
-            where: { fingerprint }
-        });
+    // Handle DJs
+    if (djs && Array.isArray(djs) && djs.length > 0) {
+        for (let i = 0; i < djs.length; i++) {
+            const djInput = djs[i];
+            const djName = typeof djInput === 'string' ? djInput : djInput.name;
 
-        if (existingByFingerprint) {
-            // Source Hierarchy Check:
-            // If existing is 'verified' or 'community', and incoming is 'automated', REJECT.
-            if (sourceType === 'automated' && existingByFingerprint.sourceType !== 'automated') {
-                return NextResponse.json({
-                    success: true,
-                    message: 'Skipped: Higher integrity source exists',
-                    id: existingByFingerprint.id
+            // Extract optional links if provided
+            const djInstagram = (typeof djInput === 'object' && djInput.instagram) ? djInput.instagram : null;
+            const djSoundcloud = (typeof djInput === 'object' && djInput.soundcloud) ? djInput.soundcloud : null;
+
+            if (!djName) continue;
+
+            // Find or create DJ
+            let dj = await (prisma as any).dJ.findFirst({
+                where: { name: djName },
+            });
+
+            if (!dj) {
+                dj = await (prisma as any).dJ.create({
+                    data: {
+                        name: djName,
+                        city: { connect: { id: cityId } },
+                        genres: 'electronic',
+                        instagram: djInstagram || null,
+                        soundcloud: djSoundcloud || null,
+                    },
                 });
-            }
+            } else {
+                // Enrich existing DJ if new data is provided
+                const updateData: any = {};
+                // Only update if we have a value and the DB might be empty or we want to overwrite
+                if (djInstagram) updateData.instagram = djInstagram;
+                if (djSoundcloud) updateData.soundcloud = djSoundcloud;
 
-            // Otherwise, we could update, but for now, just return existing to prevent dupes
-            return NextResponse.json({ success: true, message: 'Event already exists (Fingerprint Match)', id: existingByFingerprint.id });
-        }
-
-        // Create event
-        const event = await prisma.event.create({
-            data: {
-                title,
-                description: description || null,
-                startTime: startDateTime,
-                endTime: endDateTime,
-                venueId: venue.id,
-                sourceUrl: instagramUrl || ticketUrl || null,
-                sourceType: sourceType,
-                organizer: organizer || null,
-                imageUrl: imageUrl || null,
-                ctaType: ctaType || (ticketUrl ? 'external_ticket' : 'pay_at_venue'),
-                ticketUrl: ticketUrl || null,
-                ticketLinks: ticketLinks ? (ticketLinks as any) : Prisma.JsonNull as any,
-                priceRange: priceRange || null,
-                vibeTags: Array.isArray(vibeTags) ? vibeTags.join(',') : (vibeTags || null),
-                status: startDateTime <= new Date() ? 'live' : 'created',
-                fingerprint: fingerprint, // Store hash
-                slug: generateSlug(title, `${citySlug || 'goa'}-${date}`),
-            },
-        });
-
-        // Handle DJs
-        if (djs && Array.isArray(djs) && djs.length > 0) {
-            for (let i = 0; i < djs.length; i++) {
-                const djInput = djs[i];
-                const djName = typeof djInput === 'string' ? djInput : djInput.name;
-
-                // Extract optional links if provided
-                const djInstagram = (typeof djInput === 'object' && djInput.instagram) ? djInput.instagram : null;
-                const djSoundcloud = (typeof djInput === 'object' && djInput.soundcloud) ? djInput.soundcloud : null;
-
-                if (!djName) continue;
-
-                // Find or create DJ
-                let dj = await (prisma as any).dJ.findFirst({
-                    where: { name: djName },
-                });
-
-                if (!dj) {
-                    dj = await (prisma as any).dJ.create({
-                        data: {
-                            name: djName,
-                            city: { connect: { id: cityId } },
-                            genres: 'electronic',
-                            instagram: djInstagram || null,
-                            soundcloud: djSoundcloud || null,
-                        },
-                    });
-                } else {
-                    // Enrich existing DJ if new data is provided
-                    const updateData: any = {};
-                    // Only update if we have a value and the DB might be empty or we want to overwrite
-                    if (djInstagram) updateData.instagram = djInstagram;
-                    if (djSoundcloud) updateData.soundcloud = djSoundcloud;
-
-                    if (Object.keys(updateData).length > 0) {
-                        try {
-                            await (prisma as any).dJ.update({
-                                where: { id: dj.id },
-                                data: updateData
-                            });
-                        } catch (e) {
-                            console.warn(`Failed to update DJ ${djName}`, e);
-                        }
+                if (Object.keys(updateData).length > 0) {
+                    try {
+                        await (prisma as any).dJ.update({
+                            where: { id: dj.id },
+                            data: updateData
+                        });
+                    } catch (e) {
+                        console.warn(`Failed to update DJ ${djName}`, e);
                     }
                 }
-
-                if (!dj) continue;
-
-                if (!dj) continue;
-
-                // Link DJ to event
-                await prisma.eventDJ.upsert({
-                    where: {
-                        eventId_djId: {
-                            eventId: event.id,
-                            djId: dj.id
-                        }
-                    },
-                    update: { order: i },
-                    create: {
-                        eventId: event.id,
-                        djId: dj.id,
-                        order: i,
-                    },
-                });
             }
+
+            if (!dj) continue;
+
+            // Link DJ to event
+            await prisma.eventDJ.upsert({
+                where: {
+                    eventId_djId: {
+                        eventId: event.id,
+                        djId: dj.id
+                    }
+                },
+                update: { order: i },
+                create: {
+                    eventId: event.id,
+                    djId: dj.id,
+                    order: i,
+                },
+            });
+        }
+    }
+
+    return {
+        success: true,
+        event: {
+            id: event.id,
+            title: event.title,
+        },
+    };
+}
+
+// POST /api/events - Create a new event (Supports Single or Batch)
+export async function POST(request: NextRequest) {
+    try {
+        const body = await request.json();
+
+        // Security check for automated ingestion
+        const authHeader = request.headers.get('Authorization');
+        const ingestToken = process.env.INGEST_TOKEN;
+
+        // If it's an automated or community submission from an API client, check token
+        if (ingestToken && authHeader !== `Bearer ${ingestToken}`) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        return NextResponse.json({
-            success: true,
-            event: {
-                id: event.id,
-                title: event.title,
-            },
-        });
+        // Batch Mode: If body is an array, process all items
+        if (Array.isArray(body)) {
+            const results = [];
+            const errors = [];
+
+            // Process sequentially to be safe with DB connections initially, 
+            // can optimize to Promise.allWithConcurrency limit later if needed
+            for (const item of body) {
+                try {
+                    const result = await processEvent(item, ingestToken);
+                    if (result.error) {
+                        errors.push({ item: item.title || 'Unknown', error: result.error });
+                    } else {
+                        results.push(result);
+                    }
+                } catch (e: any) {
+                    errors.push({ item: item.title || 'Unknown', error: e.message });
+                }
+            }
+
+            return NextResponse.json({
+                success: true,
+                count: results.length,
+                totalProcessed: body.length,
+                results: results.map(r => r.id || r.message), // Return IDs or status
+                errors: errors.length > 0 ? errors : undefined
+            });
+        }
+
+        // Single Item Mode (Legacy)
+        const result = await processEvent(body, ingestToken);
+        if (result.error) {
+            return NextResponse.json({ error: result.error }, { status: result.status || 500 });
+        }
+        return NextResponse.json(result);
+
     } catch (error) {
         console.error('Create event error:', error);
         return NextResponse.json({ error: 'Failed to create event' }, { status: 500 });
