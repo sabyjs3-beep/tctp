@@ -33,7 +33,13 @@ export async function POST(request: NextRequest) {
             ticketUrl,
             sourceType = 'community', // default to community
             ticketLinks,
-            priceRange
+            priceRange,
+            // Rich Data fields
+            googlePlaceId,
+            lat,
+            lng,
+            imageUrl,
+            organizer
         } = body;
 
         // Validate required fields
@@ -104,6 +110,10 @@ export async function POST(request: NextRequest) {
                     name: venueName,
                     city: { connect: { id: cityId } },
                     address: venueAddress || null,
+                    // Rich Venue Data
+                    googlePlaceId: googlePlaceId || null,
+                    lat: lat ? parseFloat(lat) : null,
+                    lng: lng ? parseFloat(lng) : null,
                     // If Source is Automated/Google, mark as unclaimed
                     claimed: false,
                 },
@@ -145,6 +155,8 @@ export async function POST(request: NextRequest) {
                 venueId: venue.id,
                 sourceUrl: instagramUrl || ticketUrl || null,
                 sourceType: sourceType,
+                organizer: organizer || null,
+                imageUrl: imageUrl || null,
                 ctaType: ctaType || (ticketUrl ? 'external_ticket' : 'pay_at_venue'),
                 ticketUrl: ticketUrl || null,
                 ticketLinks: ticketLinks ? (ticketLinks as any) : Prisma.JsonNull as any,

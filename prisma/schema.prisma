@@ -35,6 +35,9 @@ model Venue {
   
   address   String?
   mapUrl    String?
+  googlePlaceId String? @unique // For map sync & dedupe
+  lat       Float?
+  lng       Float?
   claimed   Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -75,6 +78,8 @@ model Event {
   // Source info
   sourceUrl   String?     // Instagram post URL
   sourceType  String      @default("community") // "community" | "verified" | "claimed"
+  organizer   String?     // Promoter/Collective name
+  imageUrl    String?     // Event poster/cover image
   
   // CTA
   ctaType     String      @default("pay_at_venue") // "pay_at_venue" | "external_ticket"
