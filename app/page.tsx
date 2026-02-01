@@ -1,7 +1,8 @@
 import prisma from '@/lib/db';
 import Link from 'next/link';
 
-export const dynamic = 'force-dynamic';
+// ISR: Revalidate every 60 seconds
+export const revalidate = 60;
 
 export default async function LandingPage() {
   // Fetch top cities for the landing page

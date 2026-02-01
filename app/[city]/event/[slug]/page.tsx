@@ -4,6 +4,9 @@ import VoteModule, { VOTE_MODULES } from '@/components/VoteModule';
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 
+// ISR: Cache event details for 5 minutes
+export const revalidate = 300;
+
 // -----------------------------------------------------------------------------
 // Data Fetching
 // -----------------------------------------------------------------------------
