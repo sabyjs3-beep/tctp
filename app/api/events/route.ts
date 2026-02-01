@@ -171,7 +171,14 @@ export async function POST(request: NextRequest) {
         // Handle DJs
         if (djs && Array.isArray(djs) && djs.length > 0) {
             for (let i = 0; i < djs.length; i++) {
-                const djName = djs[i];
+                const djInput = djs[i];
+                const djName = typeof djInput === 'string' ? djInput : djInput.name;
+
+                // Extract optional links if provided
+                const djInstagram = (typeof djInput === 'object' && djInput.instagram) ? djInput.instagram : null;
+                const djSoundcloud = (typeof djInput === 'object' && djInput.soundcloud) ? djInput.soundcloud : null;
+
+                if (!djName) continue;
 
                 // Find or create DJ
                 let dj = await (prisma as any).dJ.findFirst({
@@ -184,9 +191,30 @@ export async function POST(request: NextRequest) {
                             name: djName,
                             city: { connect: { id: cityId } },
                             genres: 'electronic',
+                            instagram: djInstagram || null,
+                            soundcloud: djSoundcloud || null,
                         },
                     });
+                } else {
+                    // Enrich existing DJ if new data is provided
+                    const updateData: any = {};
+                    // Only update if we have a value and the DB might be empty or we want to overwrite
+                    if (djInstagram) updateData.instagram = djInstagram;
+                    if (djSoundcloud) updateData.soundcloud = djSoundcloud;
+
+                    if (Object.keys(updateData).length > 0) {
+                        try {
+                            await (prisma as any).dJ.update({
+                                where: { id: dj.id },
+                                data: updateData
+                            });
+                        } catch (e) {
+                            console.warn(`Failed to update DJ ${djName}`, e);
+                        }
+                    }
                 }
+
+                if (!dj) continue;
 
                 if (!dj) continue;
 
